@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Nealtican Gym - Display TV</title>
+  <script src="/socket.io/socket.io.js"></script>
+  <style>
+    :root {
+      --bg-color: #1a1a1a;
+      --text-main: #ffffff;
+      --text-muted: #a0a0a0;
+      --accent-yellow: #ffcc00;
+      --shadow-dark: #101010;
+      --shadow-light: #242424;
+      --border-radius: 24px;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg-color);
+      color: var(--text-main);
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      height: 100vh;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      padding: 24px;
+    }
+
+    /* Header Superior */
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 15px 30px;
+      background: var(--bg-color);
+      border-radius: var(--border-radius);
+      box-shadow: 6px 6px 14px var(--shadow-dark),
+                 -6px -6px 14px var(--shadow-light);
+      margin-bottom: 24px;
+    }
+
+    .brand {
+      font-size: 2rem;
+      font-weight: 900;
+      color: var(--accent-yellow);
+      letter-spacing: 2px;
+    }
+
+    .tv-badge {
+      font-size: 1.2rem;
+      font-weight: bold;
+      background: var(--bg-color);
+      padding: 10px 20px;
+      border-radius: 50px;
+      box-shadow: inset 3px 3px 6px var(--shadow-dark),
+                  inset -3px -3px 6px var(--shadow-light);
+      color: var(--accent-yellow);
+    }
+
+    /* Layout Principal */
+    .main-container {
+      flex: 1;
+      display: flex;
+      gap: 24px;
+      height: calc(100% - 100px);
+    }
+
+    /* Tarjetas Neumórficas de Alto Contraste */
+    .neu-panel {
+      background: var(--bg-color);
+      border-radius: var(--border-radius);
+      box-shadow: 8px 8px 18px var(--shadow-dark),
+                 -8px -8px 18px var(--shadow-light);
+      padding: 30px;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ─── VISTA 1: MODO MÚSICA ─── */
+    #musicView {
+      width: 100%;
+      display: flex;
+      gap: 24px;
+    }
+
+    .music-player-card {
+      flex: 2;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+    }
+
+    .disc-icon {
+      width: 180px;
+      height: 180px;
+      border-radius: 50%;
+      background: var(--bg-color);
+      box-shadow: 10px 10px 20px var(--shadow-dark),
+                 -10px -10px 20px var(--shadow-light);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 4rem;
+      margin-bottom: 30px;
+      border: 4px solid var(--accent-yellow);
+      animation: spin 10s linear infinite;
+    }
+
+    @keyframes spin {
+      100% { transform: rotate(360deg); }
+    }
+
+    .song-title {
+      font-size: 2.8rem;
+      font-weight: 800;
+      color: var(--text-main);
+      margin-bottom: 10px;
+    }
+
+    .song-status {
+      font-size: 1.4rem;
+      color: var(--accent-yellow);
+      text-transform: uppercase;
+      letter-spacing: 3px;
+    }
+
+    .music-queue-card {
+      flex: 1;
+    }
+
+    .queue-title {
+      font-size: 1.5rem;
+      color: var(--accent-yellow);
+      margin-bottom: 20px;
+      border-bottom: 2px solid var(--shadow-light);
+      padding-bottom: 10px;
+    }
+
+    .queue-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+    }
+
+    .queue-item {
+      padding: 15px;
+      border-radius: 12px;
+      box-shadow: inset 3px 3px 6px var(--shadow-dark),
+                  inset -3px -3px 6px var(--shadow-light);
+      font-size: 1.1rem;
+      color: var(--text-muted);
+    }
+
+    /* ─── VISTA 2: MODO RUTINA ─── */
+    #routineView {
+      width: 100%;
+      display: none; /* Se activa dinámicamente con JS */
+      gap: 24px;
+    }
+
+    .routine-info-card {
+      flex: 2;
+      justify-content: space-between;
+    }
+
+    .exercise-title {
+      font-size: 3.2rem;
+      font-weight: 900;
+      color: var(--accent-yellow);
+      margin-bottom: 10px;
+    }
+
+    .exercise-subtitle {
+      font-size: 1.6rem;
+      color: var(--text-muted);
+      margin-bottom: 20px;
+    }
+
+    .exercise-instructions {
+      font-size: 1.5rem;
+      line-height: 1.6;
+      background: var(--bg-color);
+      padding: 20px;
+      border-radius: 16px;
+      box-shadow: inset 4px 4px 8px var(--shadow-dark),
+                  inset -4px -4px 8px var(--shadow-light);
+      border-left: 6px solid var(--accent-yellow);
+    }
+
+    .timer-card {
+      flex: 1;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+    }
+
+    .timer-display {
+      font-size: 6rem;
+      font-weight: 900;
+      color: var(--accent-yellow);
+      margin: 20px 0;
+      font-family: monospace;
+    }
+
+    .status-badge {
+      font-size: 1.5rem;
+      padding: 10px 25px;
+      border-radius: 30px;
+      box-shadow: 4px 4px 8px var(--shadow-dark),
+                 -4px -4px 8px var(--shadow-light);
+      text-transform: uppercase;
+      font-weight: bold;
+    }
+
+    .status-work { color: #00ff88; }
+    .status-rest { color: #ff3366; }
+  </style>
+</head>
+<body>
+
+  <!-- Encabezado de la Pantalla -->
+  <header>
+    <div class="brand">NEALTICAN GYM</div>
+    <div class="tv-badge" id="tvNameDisplay">CARGANDO PANTALLA...</div>
+  </header>
+
+  <div class="main-container">
+
+    <!-- VISTA 1: REPRODUCTOR DE MÚSICA -->
+    <div id="musicView">
+      <div class="neu-panel music-player-card">
+        <div class="disc-icon">🎵</div>
+        <div class="song-status">Sonando en el Gym</div>
+        <div class="song-title" id="currentSongTitle">Esperando canción...</div>
+      </div>
+
+      <div class="neu-panel music-queue-card">
+        <div class="queue-title">Próximas en Fila</div>
+        <ul class="queue-list" id="musicQueueList">
+          <li class="queue-item">No hay canciones en cola</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- VISTA 2: RUTINA DE EJERCICIO EN VIVO -->
+    <div id="routineView">
+      <div class="neu-panel routine-info-card">
+        <div>
+          <div class="exercise-subtitle" id="routineMeta">RUTINA PRINCIPIANTE • PECHO</div>
+          <div class="exercise-title" id="exerciseName">Press de Banca Horizontal</div>
+        </div>
+
+        <div class="exercise-instructions" id="exerciseTips">
+          Mantén los pies apoyados en el suelo y baja la barra de forma controlada hasta el pecho.
+        </div>
+
+        <div style="font-size: 1.3rem; color: var(--accent-yellow);">
+          Siguiente Ejercicio: <span id="nextExerciseName" style="color: white;">Aperturas con Mancuernas</span>
+        </div>
+      </div>
+
+      <div class="neu-panel timer-card">
+        <div class="status-badge status-work" id="timerStatus">TIEMPO DE TRABAJO</div>
+        <div class="timer-display" id="timerCount">00:45</div>
+        <div style="color: var(--text-muted); font-size: 1.2rem;">Serie 1 de 4</div>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    const socket = io();
+
+    // 1. Identificar si esta TV es TV1 o TV2 según la URL
+    const pathname = window.location.pathname.toLowerCase();
+    const tvId = pathname.includes('tv2') ? 'tv2' : 'tv1';
+    
+    document.getElementById('tvNameDisplay').innerText = 
+      tvId === 'tv1' ? 'TV 1 - ZONA PESOS LIBRES' : 'TV 2 - ZONA MÁQUINAS';
+
+    // 2. Controladores de Estado de Interfaz
+    const musicView = document.getElementById('musicView');
+    const routineView = document.getElementById('routineView');
+    let timerInterval = null;
+
+    // Listeners de WebSockets
+    socket.on('change-tv-mode', (data) => {
+      // Si la orden no es para esta TV, la ignoramos
+      if (data.tv !== tvId) return;
+
+      if (data.mode === 'ROUTINE') {
+        showRoutineMode(data.routine);
+      } else {
+        showMusicMode(data.currentSong);
+      }
+    });
+
+    socket.on('play-song', (songName) => {
+      document.getElementById('currentSongTitle').innerText = songName || "Música Ambiental";
+    });
+
+    socket.on('update-music-queue', (queue) => {
+      const queueList = document.getElementById('musicQueueList');
+      queueList.innerHTML = '';
+      
+      if (queue.length === 0) {
+        queueList.innerHTML = '<li class="queue-item">No hay canciones en cola</li>';
+        return;
+      }
+
+      queue.slice(0, 5).forEach((song) => {
+        const li = document.createElement('li');
+        li.className = 'queue-item';
+        li.innerText = `🎵 ${song}`;
+        queueList.appendChild(li);
+      });
+    });
+
+    // Cambiar a Modo Rutina y arrancar temporizador
+    function showRoutineMode(routineData) {
+      musicView.style.display = 'none';
+      routineView.style.display = 'flex';
+
+      document.getElementById('routineMeta').innerText = 
+        `RUTINA ${routineData.level.toUpperCase()} • ${routineData.muscle.toUpperCase()}`;
+      
+      // Simulador de contador para la rutina (45 segundos de ejercicio)
+      startExerciseTimer(45);
+    }
+
+    // Cambiar a Modo Música
+    function showMusicMode(songName) {
+      clearInterval(timerInterval);
+      routineView.style.display = 'none';
+      musicView.style.display = 'flex';
+      
+      if (songName) {
+        document.getElementById('currentSongTitle').innerText = songName;
+      }
+    }
+
+    // Cronómetro dinámico de ejercicio
+    function startExerciseTimer(seconds) {
+      clearInterval(timerInterval);
+      let timeLeft = seconds;
+      const timerDisplay = document.getElementById('timerCount');
+
+      timerInterval = setInterval(() => {
+        let mins = Math.floor(timeLeft / 60);
+        let secs = timeLeft % 60;
+        
+        timerDisplay.innerText = 
+          `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+
+        if (timeLeft <= 0) {
+          clearInterval(timerInterval);
+          // Notificar al servidor que terminó la rutina para liberar la TV
+          socket.emit('routine-finished', tvId);
+        }
+        timeLeft--;
+      }, 1000);
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Nealtican Gym - Control</title>
+  <link rel="stylesheet" href="../../styles/styles.css">
+  <script src="/socket.io/socket.io.js"></script>
+</head>
+<body>
+
+  <h2 style="color: var(--accent-yellow); text-align: center;">NEALTICAN GYM</h2>
+
+  <!-- Sección 1: Enviar Rutina -->
+  <div class="neu-card accent-border">
+    <h3>🏋️‍♂️ Enviar Rutina</h3>
+    
+    <label>Nivel:</label>
+    <select id="level" class="neu-input">
+      <option value="principiante">Principiante</option>
+      <option value="avanzado">Avanzado</option>
+    </select>
+
+    <label>Grupo Muscular:</label>
+    <select id="muscle" class="neu-input">
+      <option value="pecho">Pecho / Tríceps</option>
+      <option value="espalda">Espalda / Biceps</option>
+      <option value="pierna">Pierna Completa</option>
+      <option value="hombro">Hombro</option>
+    </select>
+
+    <label>Enviar a Pantalla:</label>
+    <select id="tvTarget" class="neu-input">
+      <option value="tv1">TV 1 (Zona Pesos Libres)</option>
+      <option value="tv2">TV 2 (Zona Máquinas)</option>
+    </select>
+
+    <button class="neu-button" onclick="sendRoutine()">
+      AÑADIR RUTINA A LA COLA
+    </button>
+  </div>
+
+  <!-- Sección 2: Agregar Música Global -->
+  <div class="neu-card">
+    <h3>🎵 Música en Vivo (Ambas TVs)</h3>
+    <input type="text" id="songInput" class="neu-input" placeholder="Nombre de canción o URL...">
+    <button class="neu-button" onclick="addSong()">
+      AGREGAR A LA FILA DE MÚSICA
+    </button>
+  </div>
+
+  <script>
+    const socket = io();
+
+    function sendRoutine() {
+      const routineData = {
+        level: document.getElementById('level').value,
+        muscle: document.getElementById('muscle').value,
+        tv: document.getElementById('tvTarget').value
+      };
+      socket.emit('add-routine', routineData);
+      alert('¡Rutina enviada a la fila!');
+    }
+
+    function addSong() {
+      const song = document.getElementById('songInput').value;
+      if(!song) return;
+      socket.emit('add-music', { song });
+      document.getElementById('songInput').value = '';
+      alert('Canción agregada a la cola musical');
+    }
+  </script>
+</body>
+</html>

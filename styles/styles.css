@@ -1,0 +1,78 @@
+:root {
+  --bg-color: #1a1a1a;
+  --text-color: #f0f0f0;
+  --accent-yellow: #ffcc00;
+  --shadow-dark: #121212;
+  --shadow-light: #222222;
+  --border-radius: 16px;
+}
+
+body {
+  background-color: var(--bg-color);
+  color: var(--text-color);
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  margin: 0;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* Card Neumórfica */
+.neu-card {
+  background: var(--bg-color);
+  border-radius: var(--border-radius);
+  box-shadow: 6px 6px 12px var(--shadow-dark),
+             -6px -6px 12px var(--shadow-light);
+  padding: 20px;
+  margin-bottom: 20px;
+  width: 100%;
+  max-width: 400px;
+  box-sizing: border-box;
+}
+
+/* Botones Neumórficos con feedback táctil */
+.neu-button {
+  width: 100%;
+  padding: 14px;
+  border: none;
+  border-radius: var(--border-radius);
+  background: var(--bg-color);
+  color: var(--accent-yellow);
+  font-weight: bold;
+  font-size: 1rem;
+  cursor: pointer;
+  box-shadow: 5px 5px 10px var(--shadow-dark),
+             -5px -5px 10px var(--shadow-light);
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
+.neu-button:active {
+  box-shadow: inset 4px 4px 8px var(--shadow-dark),
+              inset -4px -4px 8px var(--shadow-light);
+  color: #fff;
+}
+
+/* Inputs / Selects Hundidos */
+.neu-input {
+  width: 100%;
+  padding: 12px;
+  border: none;
+  border-radius: 10px;
+  background: var(--bg-color);
+  color: #fff;
+  box-shadow: inset 3px 3px 6px var(--shadow-dark),
+              inset -3px -3px 6px var(--shadow-light);
+  margin-bottom: 15px;
+  outline: none;
+  box-sizing: border-box;
+}
+
+/* Indicador de acento Amarillo */
+.accent-border {
+  border-left: 4px solid var(--accent-yellow);
+}
