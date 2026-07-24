@@ -1,0 +1,24 @@
+{
+  "name": "nealticangym",
+  "version": "1.0.0",
+  "description": "Sistema de gestión multimedia y rutinas para Nealtican Gym",
+  "main": "server.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node server.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/JhonWich1/SmartGymHub.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/JhonWich1/SmartGymHub/issues"
+  },
+  "homepage": "https://github.com/JhonWich1/SmartGymHub#readme",
+  "dependencies": {
+    "express": "^5.2.1",
+    "socket.io": "^4.8.3"
+  }
+}

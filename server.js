@@ -1,79 +1,149 @@
 const express = require('express');
 const http = require('http');
-const path = require('path');
 const { Server } = require('socket.io');
+const { exec } = require('child_process');
+const path = require('path');
 
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
 
-// 1. Servir archivos estáticos (Estilos y assets)
+const PORT = process.env.PORT || 3000;
+
+// Servir archivos estáticos
 app.use('/styles', express.static(path.join(__dirname, 'styles')));
 app.use('/mobile', express.static(path.join(__dirname, 'pages/mobile')));
 app.use('/tv', express.static(path.join(__dirname, 'pages/tv')));
 
-// 2. Rutas amigables (Clean URLs)
-
-// Si entran a http://NealticanGym/ -> Muestra el Panel Móvil
+// Rutas de navegación
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'pages/mobile/index.html'));
 });
 
-// Si entran a http://NealticanGym/tv1 o /tv2 -> Muestra la vista de TV
-app.get(['/tv1', '/tv2'], (req, res) => {
+app.get('/tv1', (req, res) => {
   res.sendFile(path.join(__dirname, 'pages/tv/index.html'));
 });
 
-// 3. Lógica de WebSockets (Socket.io)
+app.get('/tv2', (req, res) => {
+  res.sendFile(path.join(__dirname, 'pages/tv/index.html'));
+});
+
+// Estado global de la cola y reproducción
 let musicQueue = [];
 let currentSong = null;
 
-let tvState = {
-  tv1: { mode: 'MUSIC', queue: [] },
-  tv2: { mode: 'MUSIC', queue: [] }
-};
+/**
+ * Extrae metadata completa y el stream directo de video MP4 usando yt-dlp
+ * @param {string} youtubeUrl 
+ * @returns {Promise<Object>}
+ */
+function getMediaData(youtubeUrl) {
+  return new Promise((resolve, reject) => {
+    // -f "best[ext=mp4]/best": Selecciona el mejor flujo de video+audio en MP4
+    // --dump-json: Extrae la información estructurada sin descargar el archivo
+    const command = `yt-dlp -f "best[ext=mp4]/best" --dump-json --no-playlist "${youtubeUrl}"`;
 
-io.on('connection', (socket) => {
-  console.log('Cliente conectado:', socket.id);
-
-  // Sincronización al conectar
-  socket.emit('sync-state', { musicQueue, currentSong, tvState });
-
-  // Manejo de música
-  socket.on('add-music', (data) => {
-    musicQueue.push(data.song);
-    if (!currentSong) {
-      currentSong = musicQueue.shift();
-      io.emit('play-song', currentSong);
-    }
-    io.emit('update-music-queue', musicQueue);
+    exec(command, { maxBuffer: 1024 * 1024 * 15 }, (error, stdout, stderr) => {
+      if (error) {
+        console.error('Error extrayendo metadata con yt-dlp:', stderr);
+        return reject(error);
+      }
+      try {
+        const data = JSON.parse(stdout);
+        resolve({
+          title: data.title || 'Música Ambiental',
+          artist: data.uploader || data.channel || 'Nealtican Gym',
+          thumbnail: data.thumbnail || '',
+          videoUrl: data.url
+        });
+      } catch (parseErr) {
+        console.error('Error procesando JSON de yt-dlp:', parseErr);
+        reject(parseErr);
+      }
+    });
   });
+}
 
-  // Manejo de rutinas por TV
-  socket.on('add-routine', (data) => {
-    const targetTv = data.tv; // 'tv1' o 'tv2'
-    tvState[targetTv].queue.push(data);
+/**
+ * Procesa y reproduce el siguiente elemento de la cola
+ */
+async function playNextSong() {
+  if (musicQueue.length === 0) {
+    currentSong = null;
+    io.emit('song-changed', {
+      title: 'Esperando canción...',
+      artist: 'Nealtican Gym',
+      thumbnail: '',
+      videoUrl: null
+    });
+    return;
+  }
+
+  const nextItem = musicQueue.shift();
+  io.emit('update-music-queue', musicQueue);
+
+  try {
+    console.log(`\n[yt-dlp] Procesando enlace: ${nextItem.url}`);
+    const mediaData = await getMediaData(nextItem.url);
+
+    currentSong = mediaData;
+    console.log(`[Media Ready] Sonando: "${currentSong.title}" por ${currentSong.artist}`);
     
-    if (tvState[targetTv].mode === 'MUSIC') {
-      tvState[targetTv].mode = 'ROUTINE';
-      const currentRoutine = tvState[targetTv].queue.shift();
-      io.emit('change-tv-mode', { tv: targetTv, mode: 'ROUTINE', routine: currentRoutine });
+    io.emit('song-changed', currentSong);
+
+  } catch (err) {
+    console.error('Error procesando el enlace. Saltando a la siguiente canción...', err);
+    playNextSong();
+  }
+}
+
+// Control de WebSockets
+io.on('connection', (socket) => {
+  console.log(`[Socket] Cliente conectado: ${socket.id}`);
+
+  // Enviar el estado actual al cliente que se acaba de conectar
+  socket.emit('update-music-queue', musicQueue);
+
+  if (currentSong) {
+    socket.emit('song-changed', currentSong);
+  } else {
+    socket.emit('song-changed', {
+      title: 'Esperando canción...',
+      artist: 'Nealtican Gym',
+      thumbnail: '',
+      videoUrl: null
+    });
+  }
+
+  // Recibir petición de canción desde el celular
+  socket.on('add-song', (data) => {
+    console.log(`[Socket] Canción recibida desde móvil: ${data.url}`);
+    const songObj = { url: data.url };
+
+    if (!currentSong) {
+      musicQueue.push(songObj);
+      playNextSong();
+    } else {
+      musicQueue.push(songObj);
+      io.emit('update-music-queue', musicQueue);
     }
   });
 
-  // Evento al terminar la rutina
-  socket.on('routine-finished', (tvId) => {
-    if (tvState[tvId].queue.length > 0) {
-      const nextRoutine = tvState[tvId].queue.shift();
-      io.emit('change-tv-mode', { tv: tvId, mode: 'ROUTINE', routine: nextRoutine });
-    } else {
-      tvState[tvId].mode = 'MUSIC';
-      io.emit('change-tv-mode', { tv: tvId, mode: 'MUSIC', currentSong });
-    }
+  // Notificación emitida por la TV cuando el reproductor finaliza el video
+  socket.on('song-ended', () => {
+    console.log('[Socket] Fin de canción reportado por TV. Siguiente en fila...');
+    playNextSong();
+  });
+
+  socket.on('disconnect', () => {
+    console.log(`[Socket] Cliente desconectado: ${socket.id}`);
   });
 });
 
-const PORT = process.env.PORT || 80;
+// Iniciar servidor
 server.listen(PORT, () => {
-  console.log(`🚀 Servidor NealticanGym corriendo en http://localhost:${PORT}`);
+  console.log(`=================================================`);
+  console.log(` Servidor Nealtican Gym listo y escuchando en:`);
+  console.log(` http://localhost:${PORT}`);
+  console.log(`=================================================`);
 });

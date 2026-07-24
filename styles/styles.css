@@ -1,78 +1,175 @@
 :root {
   --bg-color: #1a1a1a;
-  --text-color: #f0f0f0;
+  --panel-bg: #1a1a1a;
+  --text-color: #ffffff;
+  --text-muted: #aaaaaa;
   --accent-yellow: #ffcc00;
   --shadow-dark: #121212;
-  --shadow-light: #222222;
-  --border-radius: 16px;
+  --shadow-light: #242424;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }
 
 body {
   background-color: var(--bg-color);
   color: var(--text-color);
-  font-family: 'Segoe UI', system-ui, sans-serif;
-  margin: 0;
-  padding: 16px;
+  min-height: 100vh;
   display: flex;
   flex-direction: column;
-  align-items: center;
-}
-
-/* Card Neumórfica */
-.neu-card {
-  background: var(--bg-color);
-  border-radius: var(--border-radius);
-  box-shadow: 6px 6px 12px var(--shadow-dark),
-             -6px -6px 12px var(--shadow-light);
   padding: 20px;
-  margin-bottom: 20px;
-  width: 100%;
-  max-width: 400px;
-  box-sizing: border-box;
 }
 
-/* Botones Neumórficos con feedback táctil */
-.neu-button {
-  width: 100%;
-  padding: 14px;
-  border: none;
-  border-radius: var(--border-radius);
+header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 25px;
+}
+
+.brand {
+  font-size: 1.8rem;
+  font-weight: 900;
+  color: var(--accent-yellow);
+  letter-spacing: 2px;
+  text-shadow: 0 0 10px rgba(255, 204, 0, 0.2);
+}
+
+.tv-badge {
   background: var(--bg-color);
+  color: var(--accent-yellow);
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-weight: bold;
+  font-size: 0.85rem;
+  letter-spacing: 1px;
+  box-shadow: 3px 3px 6px var(--shadow-dark),
+              -3px -3px 6px var(--shadow-light);
+}
+
+/* Paneles Neumórficos */
+.neu-panel {
+  background: var(--panel-bg);
+  border-radius: 20px;
+  padding: 25px;
+  box-shadow: 8px 8px 16px var(--shadow-dark),
+              -8px -8px 16px var(--shadow-light);
+  margin-bottom: 20px;
+}
+
+.neu-inset {
+  background: var(--panel-bg);
+  border-radius: 12px;
+  padding: 14px 18px;
+  box-shadow: inset 4px 4px 8px var(--shadow-dark),
+              inset -4px -4px 8px var(--shadow-light);
+  border: none;
+  color: var(--text-color);
+  outline: none;
+  width: 100%;
+  font-size: 0.95rem;
+}
+
+.neu-button {
+  background: var(--panel-bg);
+  border: none;
+  border-radius: 12px;
+  padding: 14px 20px;
   color: var(--accent-yellow);
   font-weight: bold;
   font-size: 1rem;
   cursor: pointer;
   box-shadow: 5px 5px 10px var(--shadow-dark),
-             -5px -5px 10px var(--shadow-light);
+              -5px -5px 10px var(--shadow-light);
   transition: all 0.2s ease;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
+  width: 100%;
 }
 
 .neu-button:active {
-  box-shadow: inset 4px 4px 8px var(--shadow-dark),
-              inset -4px -4px 8px var(--shadow-light);
-  color: #fff;
-}
-
-/* Inputs / Selects Hundidos */
-.neu-input {
-  width: 100%;
-  padding: 12px;
-  border: none;
-  border-radius: 10px;
-  background: var(--bg-color);
-  color: #fff;
   box-shadow: inset 3px 3px 6px var(--shadow-dark),
               inset -3px -3px 6px var(--shadow-light);
-  margin-bottom: 15px;
-  outline: none;
-  box-sizing: border-box;
+  color: #d4a700;
 }
 
-/* Indicador de acento Amarillo */
-.accent-border {
-  border-left: 4px solid var(--accent-yellow);
+/* Layout Grid para Pantallas TV */
+.main-container {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 20px;
+  flex: 1;
+}
+
+@media (max-width: 768px) {
+  .main-container {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Tarjeta de Reproducción */
+.music-player-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  min-height: 350px;
+}
+
+.disc-icon {
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  background: var(--bg-color);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 3rem;
+  color: var(--accent-yellow);
+  box-shadow: 6px 6px 12px var(--shadow-dark),
+              -6px -6px 12px var(--shadow-light);
+  border: 3px solid var(--accent-yellow);
+  margin-bottom: 25px;
+}
+
+.song-status {
+  font-size: 0.9rem;
+  color: var(--accent-yellow);
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  margin-bottom: 8px;
+}
+
+.song-title {
+  font-size: 1.8rem;
+  font-weight: bold;
+  word-break: break-all;
+  max-width: 90%;
+}
+
+/* Lista de Cola */
+.queue-title {
+  color: var(--accent-yellow);
+  font-weight: bold;
+  margin-bottom: 15px;
+  font-size: 1.1rem;
+}
+
+.queue-list {
+  list-style: none;
+}
+
+.queue-item {
+  background: var(--bg-color);
+  padding: 12px 16px;
+  border-radius: 10px;
+  margin-bottom: 10px;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  box-shadow: inset 2px 2px 5px var(--shadow-dark),
+              inset -2px -2px 5px var(--shadow-light);
+  word-break: break-all;
 }
