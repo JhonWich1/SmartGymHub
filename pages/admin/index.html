@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Nealtican Gym - Panel de Administración</title>
+  <script src="/socket.io/socket.io.js"></script>
+  <link rel="stylesheet" href="/styles/styles.css">
+  <style>
+    /* Estilos específicos del Dashboard Desktop */
+    body { overflow-y: auto; }
+    
+    .admin-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+      margin-top: 15px;
+    }
+
+    .admin-controls-card {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .control-btn-group {
+      display: flex;
+      gap: 15px;
+    }
+
+    .btn-admin {
+      flex: 1;
+      padding: 15px;
+      border: none;
+      border-radius: 12px;
+      font-weight: bold;
+      font-size: 1rem;
+      cursor: pointer;
+      background: var(--panel-bg);
+      color: var(--text-color);
+      box-shadow: 4px 4px 8px var(--shadow-dark), -4px -4px 8px var(--shadow-light);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    .btn-admin:active {
+      box-shadow: inset 3px 3px 6px var(--shadow-dark), inset -3px -3px 6px var(--shadow-light);
+    }
+
+    .btn-danger { color: #ff4d4d; }
+    .btn-warning { color: var(--accent-yellow); }
+    .btn-active { background: var(--accent-yellow); color: #000; }
+
+    .volume-container {
+      display: flex;
+      align-items: center;
+      gap: 15px;
+      background: var(--bg-color);
+      padding: 15px;
+      border-radius: 14px;
+      box-shadow: inset 3px 3px 6px var(--shadow-dark), inset -3px -3px 6px var(--shadow-light);
+    }
+
+    .volume-slider {
+      flex: 1;
+      accent-color: var(--accent-yellow);
+      cursor: pointer;
+    }
+
+    /* Modal de Autenticación */
+    #authOverlay {
+      position: fixed;
+      top:0; left:0; width:100vw; height:100vh;
+      background: rgba(15, 15, 15, 0.98);
+      z-index: 10000;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .login-card {
+      width: 320px;
+      text-align: center;
+    }
+
+    .delete-item-btn {
+      background: #ff4d4d22;
+      border: 1px solid #ff4d4d;
+      color: #ff4d4d;
+      border-radius: 6px;
+      padding: 4px 8px;
+      cursor: pointer;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Modal de PIN de Seguridad -->
+  <div id="authOverlay">
+    <div class="neu-panel login-card">
+      <h2 style="color: var(--accent-yellow); margin-bottom: 15px;">🔒 Panel Admin</h2>
+      <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 15px;">Introduce el PIN de acceso:</p>
+      <input type="password" id="pinInput" class="neu-inset" placeholder="****" style="text-align: center; letter-spacing: 5px; font-size: 1.2rem;" />
+      <button onclick="attemptLogin()" class="neu-button" style="margin-top: 15px;">Ingresar</button>
+      <p id="authError" style="color: #ff4d4d; font-size: 0.8rem; margin-top: 10px; display: none;"></p>
+    </div>
+  </div>
+
+  <header>
+    <div class="brand">NEALTICAN GYM <span style="font-size: 1rem; color: var(--text-muted);">| Admin Dashboard</span></div>
+    <div class="header-right">
+      <div class="tv-badge" id="lockStatusBadge">ESTADO: ABIERTO</div>
+    </div>
+  </header>
+
+  <main class="admin-grid">
+    
+    <!-- Columna Izquierda: Reproducción y Ajustes -->
+    <div class="admin-controls-card">
+      
+      <!-- Canción Sonando Actualmente -->
+      <div class="neu-panel">
+        <h3 style="color: var(--accent-yellow); margin-bottom: 12px; font-size: 0.9rem; text-transform: uppercase;">▶ Sonando en el Gimnasio</h3>
+        <div class="song-info-footer" style="margin-top:0;">
+          <img id="adminCover" src="https://via.placeholder.com/50" class="song-cover" />
+          <div class="song-text-details">
+            <div class="song-artist" id="adminArtist">ARTISTA</div>
+            <div class="song-title-single" id="adminTitle">Esperando canción...</div>
+          </div>
+        </div>
+
+        <div class="control-btn-group" style="margin-top: 15px;">
+          <button class="btn-admin btn-warning" id="pauseBtn" onclick="togglePause()">⏸️ Pausar</button>
+          <button class="btn-admin" onclick="skipSong()">⏭️ Saltar Canción</button>
+        </div>
+      </div>
+
+      <!-- Control de Volumen -->
+      <div class="neu-panel">
+        <h3 style="color: var(--accent-yellow); margin-bottom: 12px; font-size: 0.9rem; text-transform: uppercase;">🔊 Control de Volumen</h3>
+        <div class="volume-container">
+          <span>🔈</span>
+          <input type="range" id="volumeSlider" class="volume-slider" min="0" max="100" value="100" onchange="setVolume(this.value)" />
+          <span id="volValueText" style="font-weight: bold; width: 45px;">100%</span>
+        </div>
+      </div>
+
+      <!-- Acciones de Seguridad -->
+      <div class="neu-panel">
+        <h3 style="color: var(--accent-yellow); margin-bottom: 12px; font-size: 0.9rem; text-transform: uppercase;">🛡️ Acciones de Seguridad</h3>
+        <div class="control-btn-group">
+          <button class="btn-admin btn-warning" id="lockBtn" onclick="toggleQueueLock()">🔒 Bloquear Añadir Música</button>
+          <button class="btn-admin btn-danger" onclick="clearQueue()">🗑️ Vaciar Fila</button>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Columna Derecha: Gestión de Cola de Espera -->
+    <div class="neu-panel queue-card" style="height: 100%;">
+      <div class="queue-title">
+        <span>Gestión de Fila en Vivo</span>
+        <span id="adminQueueCount" style="font-size: 0.85rem; color: var(--text-muted);">(0)</span>
+      </div>
+      
+      <ul class="queue-list" id="adminQueueList">
+        <li style="color: var(--text-muted); font-size: 0.85rem; padding: 10px;">No hay canciones en cola</li>
+      </ul>
+    </div>
+
+  </main>
+
+  <script>
+    const socket = io();
+
+    function attemptLogin() {
+      const pin = document.getElementById('pinInput').value;
+      socket.emit('admin-login', pin);
+    }
+
+    socket.on('admin-auth-success', () => {
+      document.getElementById('authOverlay').style.display = 'none';
+    });
+
+    socket.on('admin-auth-fail', (msg) => {
+      const err = document.getElementById('authError');
+      err.innerText = msg;
+      err.style.display = 'block';
+    });
+
+    // Controles
+    function togglePause() { socket.emit('admin-toggle-pause'); }
+    function skipSong() { socket.emit('admin-skip-song'); }
+    function setVolume(val) { 
+      document.getElementById('volValueText').innerText = val + '%';
+      socket.emit('admin-set-volume', val); 
+    }
+    function toggleQueueLock() { socket.emit('admin-toggle-lock'); }
+    function clearQueue() { 
+      if (confirm('¿Vaciar toda la lista de reproducción?')) {
+        socket.emit('admin-clear-queue'); 
+      }
+    }
+    function removeSong(songId) { socket.emit('admin-remove-song', songId); }
+
+    // Sincronizar estado del reproductor
+    socket.on('player-status-changed', (data) => {
+      const pauseBtn = document.getElementById('pauseBtn');
+      if (data.isPaused) {
+        pauseBtn.innerText = '▶️ Reanudar';
+        pauseBtn.classList.add('btn-active');
+      } else {
+        pauseBtn.innerText = '⏸️ Pausar';
+        pauseBtn.classList.remove('btn-active');
+      }
+
+      document.getElementById('volumeSlider').value = data.volume;
+      document.getElementById('volValueText').innerText = data.volume + '%';
+    });
+
+    // Estado del Bloqueo
+    socket.on('queue-lock-changed', (isLocked) => {
+      const badge = document.getElementById('lockStatusBadge');
+      const lockBtn = document.getElementById('lockBtn');
+      if (isLocked) {
+        badge.innerText = 'ESTADO: BLOQUEADO';
+        badge.style.color = '#ff4d4d';
+        lockBtn.innerText = '🔓 Desbloquear Fila';
+      } else {
+        badge.innerText = 'ESTADO: ABIERTO';
+        badge.style.color = 'var(--accent-yellow)';
+        lockBtn.innerText = '🔒 Bloquear Fila';
+      }
+    });
+
+    // Canción Actual
+    socket.on('song-changed', (data) => {
+      document.getElementById('adminTitle').innerText = data.title;
+      document.getElementById('adminArtist').innerText = data.artist || 'NEALTICAN GYM';
+      if (data.thumbnail) document.getElementById('adminCover').src = data.thumbnail;
+    });
+
+    // Cola en tiempo real con botón de eliminación individual
+    socket.on('update-music-queue', (queue) => {
+      const queueList = document.getElementById('adminQueueList');
+      document.getElementById('adminQueueCount').innerText = `(${queue.length})`;
+      queueList.innerHTML = '';
+
+      if (queue.length === 0) {
+        queueList.innerHTML = '<li style="color: var(--text-muted); font-size: 0.85rem; padding: 10px;">No hay canciones en cola</li>';
+        return;
+      }
+
+      queue.forEach((song) => {
+        const li = document.createElement('li');
+        li.className = 'queue-item';
+        li.innerHTML = `
+          <img class="queue-thumb" src="${song.thumbnail || 'https://via.placeholder.com/40'}" />
+          <div class="queue-info">
+            <div class="queue-song-title">${song.title}</div>
+            <div class="queue-song-artist">${song.artist} | ⏱️ ${Math.round(song.duration/60)}m</div>
+          </div>
+          <button class="delete-item-btn" onclick="removeSong('${song.id}')">❌ Expulsar</button>
+        `;
+        queueList.appendChild(li);
+      });
+    });
+  </script>
+</body>
+</html>
