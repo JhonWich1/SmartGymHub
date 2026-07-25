@@ -134,6 +134,10 @@
       document.getElementById('authOverlay').style.display = 'none';
     });
 
+    socket.on('song-error', (msg) => {
+      alert('⚠️ Error al agregar canción: ' + msg);
+    });
+
     socket.on('admin-auth-fail', (msg) => {
       const err = document.getElementById('authError');
       err.innerText = msg;

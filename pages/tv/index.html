@@ -78,6 +78,7 @@
       }
     });
 
+
     socket.on('update-music-queue', (queue) => {
       const queueList = document.getElementById('musicQueueList');
       document.getElementById('queueCount').innerText = `(${queue.length})`;

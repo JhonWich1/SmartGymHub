@@ -36,6 +36,34 @@ let isQueueLocked = false;
 let isPaused = false;
 let currentVolume = 100;
 
+/**
+ * Limpia y estandariza la IP recibida (convierte ::1 o ::ffff:127.0.0.1 a 127.0.0.1)
+ */
+function getCleanIp(address) {
+  if (!address) return '127.0.0.1';
+  let ip = address.replace(/^.*:/, '');
+  if (ip === '1' || ip === '' || ip === 'localhost') return '127.0.0.1';
+  return ip;
+}
+
+/**
+ * Extrae de forma estricta el ID único del video de YouTube (11 caracteres)
+ * y descarta parámetros de listas, radios, tiempo o rastreo (list=RD..., start_radio=1, etc.)
+ */
+function cleanYoutubeUrl(rawUrl) {
+  if (!rawUrl) return rawUrl;
+  
+  // Expresión regular que detecta enlaces de watch, embed, shorts y youtu.be
+  const regExp = /^.*(?:youtu\.be\/|v\/|u\/\w\/|embed\/|shorts\/|watch\?v=|\&v=)([^#\&\?]*).*/;
+  const match = rawUrl.match(regExp);
+
+  if (match && match[1] && match[1].length === 11) {
+    return `https://www.youtube.com/watch?v=${match[1]}`;
+  }
+  
+  return rawUrl; // Si no se puede analizar, devuelve la original
+}
+
 function sendMpvCommand(commandArray) {
   if (!fs.existsSync(MPV_SOCKET)) return;
   const client = net.connect(MPV_SOCKET, () => {
@@ -47,7 +75,8 @@ function sendMpvCommand(commandArray) {
 
 function getMediaData(youtubeUrl) {
   return new Promise((resolve, reject) => {
-    const command = `yt-dlp -f "best[ext=mp4]/best" --dump-json --no-playlist "${youtubeUrl}"`;
+    // Forzamos --force-ipv4 para evitar bloqueos de red locales
+    const command = `yt-dlp --force-ipv4 -f "best[ext=mp4]/best" --dump-json --no-playlist "${youtubeUrl}"`;
 
     exec(command, { maxBuffer: 1024 * 1024 * 15 }, async (error, stdout, stderr) => {
       if (error) return reject('No se pudo procesar el enlace de YouTube.');
@@ -81,19 +110,16 @@ function getMediaData(youtubeUrl) {
 
 function getAudioOnlyUrl(youtubeUrl) {
   return new Promise((resolve) => {
-    exec(`yt-dlp -f bestaudio -g "${youtubeUrl}"`, (err, stdout) => {
+    exec(`yt-dlp --force-ipv4 -f bestaudio -g "${youtubeUrl}"`, (err, stdout) => {
       if (err) resolve(null);
       else resolve(stdout.trim().split('\n')[0]);
     });
   });
 }
 
-/**
- * Detiene de forma limpia el proceso mpv actual evitando bucles de eventos
- */
 function stopCurrentAudio() {
   if (currentAudioProcess) {
-    currentAudioProcess.removeAllListeners('close'); // Elimina el callback para evitar re-invocación
+    currentAudioProcess.removeAllListeners('close');
     currentAudioProcess.kill('SIGKILL');
     currentAudioProcess = null;
   }
@@ -131,7 +157,6 @@ async function playNextSong() {
     currentSong = null;
     stopCurrentAudio();
     
-    // Notificar a las TVs y Admin que la reproducción ha finalizado por completo
     io.emit('song-changed', {
       title: 'Esperando canción...',
       artist: 'Nealtican Gym',
@@ -150,7 +175,9 @@ async function playNextSong() {
 
 // Websockets
 io.on('connection', (socket) => {
-  const clientIp = socket.handshake.address;
+  const rawIp = socket.handshake.address;
+  const clientIp = getCleanIp(rawIp);
+  const isLocalhost = clientIp === '127.0.0.1';
 
   socket.emit('update-music-queue', musicQueue);
   socket.emit('queue-lock-changed', isQueueLocked);
@@ -161,19 +188,22 @@ io.on('connection', (socket) => {
     thumbnail: '',
     videoUrl: null
   });
-
+// Petición desde la vista móvil
   socket.on('add-song', async (data) => {
-    if (isQueueLocked) {
+    // 🧹 Limpieza automática de la URL
+    const cleanedUrl = cleanYoutubeUrl(data.url);
+
+    if (isQueueLocked && !isLocalhost) {
       return socket.emit('song-error', 'La cola está pausada por la administración.');
     }
 
     const userSongsInQueue = musicQueue.filter(song => song.clientIp === clientIp).length;
-    if (userSongsInQueue >= MAX_SONGS_PER_IP) {
+    if (!isLocalhost && userSongsInQueue >= MAX_SONGS_PER_IP) {
       return socket.emit('song-error', `Ya tienes ${MAX_SONGS_PER_IP} canciones en la fila.`);
     }
 
     try {
-      const mediaData = await getMediaData(data.url);
+      const mediaData = await getMediaData(cleanedUrl);
       mediaData.clientIp = clientIp;
 
       if (!currentSong) {
@@ -190,9 +220,13 @@ io.on('connection', (socket) => {
     }
   });
 
+  // Petición directa desde el panel Admin
   socket.on('admin-add-song', async (data) => {
+    // 🧹 Limpieza automática de la URL
+    const cleanedUrl = cleanYoutubeUrl(data.url);
+
     try {
-      const mediaData = await getMediaData(data.url);
+      const mediaData = await getMediaData(cleanedUrl);
       mediaData.clientIp = 'ADMIN';
 
       if (!currentSong) {
@@ -204,9 +238,10 @@ io.on('connection', (socket) => {
         io.emit('update-music-queue', musicQueue);
       }
     } catch (err) {
-      socket.emit('song-error', 'Error al procesar la canción solicitada.');
+      socket.emit('song-error', typeof err === 'string' ? err : 'Error al procesar la canción solicitada.');
     }
   });
+  
 
   socket.on('admin-login', (pin) => {
     if (pin === ADMIN_PIN) socket.emit('admin-auth-success');
@@ -246,5 +281,5 @@ io.on('connection', (socket) => {
 });
 
 server.listen(PORT, () => {
-  console.log(`Servidor Nealtican Gym escuchando en http://localhost:${PORT}`);
-});
+  console.log(`Servidor Nealtican Gym activo en http://localhost:${PORT}`);
+}); 
