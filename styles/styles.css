@@ -1,131 +1,144 @@
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@500;700;900&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
+
 :root {
-  --bg-color: #141414;
-  --panel-bg: #1e1e1e;
-  --text-color: #ffffff;
-  --text-muted: #aaaaaa;
+  --bg-color: #16171b;
+  --panel-bg: #1c1e24;
+  --text-color: #f0f2f5;
+  --text-muted: #8a8f9d;
   --accent-yellow: #ffcc00;
-  --shadow-dark: #0d0d0d;
-  --shadow-light: #262626;
+  --accent-glow: rgba(255, 204, 0, 0.15);
+  
+  --neu-flat: 8px 8px 18px #0f1013, -8px -8px 18px #23262f;
+  --neu-flat-sm: 4px 4px 10px #0f1013, -4px -4px 10px #23262f;
+  --neu-inset: inset 4px 4px 8px #0e0f12, inset -4px -4px 8px #2a2d36;
 }
 
 * {
   box-sizing: border-box;
   margin: 0;
   padding: 0;
-  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  -webkit-tap-highlight-color: transparent;
 }
 
 body {
   background-color: var(--bg-color);
   color: var(--text-color);
-  height: 100vh;
-  display: flex;
-  flex-direction: column;
-  padding: 15px 25px;
-  overflow: hidden;
+  min-height: 100vh;
+}
+
+/* Tipografía Elegante */
+h1, h2, h3, .brand {
+  font-family: 'Outfit', sans-serif;
+  letter-spacing: 0.5px;
 }
 
 header {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  height: 50px;
   margin-bottom: 15px;
-  height: 45px;
 }
 
 .brand {
-  font-size: 1.8rem;
+  font-size: 1.6rem;
   font-weight: 900;
   color: var(--accent-yellow);
-  letter-spacing: 2px;
-  text-shadow: 0 0 12px rgba(255, 204, 0, 0.25);
+  letter-spacing: 1.5px;
+  text-shadow: 0 0 12px var(--accent-glow);
 }
 
-.header-right {
-  display: flex;
-  align-items: center;
-  gap: 15px;
+.tv-badge {
+  background: var(--panel-bg);
+  color: var(--accent-yellow);
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-weight: 700;
+  font-size: 0.75rem;
+  box-shadow: var(--neu-flat-sm);
+  letter-spacing: 1px;
 }
 
 .clock-display {
   font-size: 1.1rem;
-  font-weight: 600;
+  font-weight: 700;
   color: var(--text-color);
   background: var(--panel-bg);
-  padding: 6px 14px;
-  border-radius: 12px;
-  box-shadow: 3px 3px 6px var(--shadow-dark), -3px -3px 6px var(--shadow-light);
+  padding: 6px 16px;
+  border-radius: 14px;
+  box-shadow: var(--neu-flat-sm);
 }
 
-.tv-badge {
-  background: var(--bg-color);
-  color: var(--accent-yellow);
-  padding: 6px 14px;
-  border-radius: 12px;
-  font-weight: bold;
-  font-size: 0.85rem;
-  box-shadow: inset 2px 2px 5px var(--shadow-dark), inset -2px -2px 5px var(--shadow-light);
-}
-
-/* Layout Grid Ajustado: Video Ancho / Cola Compacta */
-.main-container {
-  display: grid;
-  grid-template-columns: 1fr 310px;
-  gap: 20px;
-  height: calc(100vh - 90px);
-}
-
-.neu-panel {
-  background: var(--panel-bg);
-  border-radius: 20px;
-  padding: 20px;
-  box-shadow: 6px 6px 14px var(--shadow-dark), -6px -6px 14px var(--shadow-light);
-  display: flex;
-  flex-direction: column;
-}
-
-/* Contenedor de Video Gigante */
-.video-card {
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-}
-
-.video-container {
-  width: 100%;
-  flex: 1;
-  max-height: 72vh;
-  border-radius: 16px;
+/* ==========================================
+   CONFIGURACIÓN EXCLUSIVA PARA PANTALLAS TV
+   ========================================== */
+body.tv-screen {
+  height: 100vh;
   overflow: hidden;
-  background: #000;
   display: flex;
-  justify-content: center;
-  align-items: center;
-  box-shadow: inset 4px 4px 10px #000;
+  flex-direction: column;
+  padding: 15px 25px;
 }
 
-video {
+body.tv-screen .main-container {
+  display: grid;
+  grid-template-columns: 1fr 320px;
+  gap: 20px;
+  height: calc(100vh - 80px);
+  overflow: hidden;
+}
+
+body.tv-screen .video-card {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  gap: 15px;
+  overflow: hidden;
+}
+
+body.tv-screen .video-container {
+  flex: 1;
+  min-height: 0; /* Impide que el video desborde en Flexbox */
+  width: 100%;
+  background: #000;
+  border-radius: 18px;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: inset 0 0 20px #000;
+}
+
+body.tv-screen video {
   width: 100%;
   height: 100%;
   object-fit: contain;
 }
 
-/* Detalle de Canción en 1 sola línea */
+/* Paneles Neumórficos */
+.neu-panel {
+  background: var(--panel-bg);
+  border-radius: 22px;
+  padding: 20px;
+  box-shadow: var(--neu-flat);
+}
+
 .song-info-footer {
   display: flex;
   align-items: center;
   gap: 15px;
-  margin-top: 15px;
   background: var(--bg-color);
-  padding: 10px 15px;
-  border-radius: 14px;
-  box-shadow: inset 3px 3px 6px var(--shadow-dark), inset -3px -3px 6px var(--shadow-light);
+  padding: 12px 18px;
+  border-radius: 16px;
+  box-shadow: var(--neu-inset);
+  flex-shrink: 0;
 }
 
 .song-cover {
-  width: 50px;
-  height: 50px;
-  border-radius: 10px;
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
   object-fit: cover;
   border: 2px solid var(--accent-yellow);
   flex-shrink: 0;
@@ -133,35 +146,38 @@ video {
 
 .song-text-details {
   flex: 1;
-  min-width: 0; /* Permite el recorte ellipsis */
+  min-width: 0;
 }
 
 .song-artist {
   font-size: 0.75rem;
   color: var(--accent-yellow);
-  font-weight: bold;
+  font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 1px;
 }
 
 .song-title-single {
-  font-size: 1.2rem;
-  font-weight: bold;
+  font-size: 1.15rem;
+  font-weight: 700;
   white-space: nowrap;
   overflow: hidden;
-  text-overflow: ellipsis; /* Corta con "..." en 1 sola línea */
+  text-overflow: ellipsis;
   color: #ffffff;
 }
 
-/* Sidebar de Cola de Espera */
+/* Lateral de Cola */
 .queue-card {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
   overflow: hidden;
 }
 
 .queue-title {
   color: var(--accent-yellow);
-  font-weight: bold;
-  margin-bottom: 15px;
+  font-weight: 700;
+  margin-bottom: 14px;
   font-size: 1rem;
   display: flex;
   align-items: center;
@@ -172,33 +188,29 @@ video {
   list-style: none;
   overflow-y: auto;
   flex: 1;
-  padding-right: 5px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-right: 4px;
 }
 
-/* Scrollbar personalizado */
-.queue-list::-webkit-scrollbar {
-  width: 5px;
-}
-.queue-list::-webkit-scrollbar-thumb {
-  background: var(--shadow-light);
-  border-radius: 4px;
-}
+.queue-list::-webkit-scrollbar { width: 4px; }
+.queue-list::-webkit-scrollbar-thumb { background: #333; border-radius: 4px; }
 
 .queue-item {
   background: var(--bg-color);
-  padding: 10px;
-  border-radius: 12px;
-  margin-bottom: 10px;
+  padding: 10px 12px;
+  border-radius: 14px;
   display: flex;
   align-items: center;
   gap: 12px;
-  box-shadow: 3px 3px 6px var(--shadow-dark), -3px -3px 6px var(--shadow-light);
+  box-shadow: var(--neu-flat-sm);
 }
 
 .queue-thumb {
-  width: 40px;
-  height: 40px;
-  border-radius: 6px;
+  width: 42px;
+  height: 42px;
+  border-radius: 8px;
   object-fit: cover;
   flex-shrink: 0;
 }
@@ -218,39 +230,76 @@ video {
 }
 
 .queue-song-artist {
-  font-size: 0.7rem;
+  font-size: 0.72rem;
   color: var(--text-muted);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+}
+/* Navegador por Pestañas Neumórfico Corregido */
+.tab-navigation {
+  display: flex;
+  background: var(--panel-bg);
+  padding: 6px;
+  border-radius: 18px;
+  box-shadow: var(--neu-inset);
+  margin-bottom: 22px;
+  gap: 8px;
 }
 
-/* Estilos de Entrada para Móvil */
+.tab-btn {
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  flex: 1;
+  padding: 12px 10px;
+  border: none;
+  outline: none;
+  background: var(--bg-color);
+  color: var(--text-muted);
+  font-family: 'Outfit', sans-serif;
+  font-weight: 700;
+  font-size: 0.95rem;
+  border-radius: 14px;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  box-shadow: var(--neu-inset);
+}
+
+.tab-btn.active {
+  background: var(--panel-bg);
+  color: var(--accent-yellow);
+  box-shadow: var(--neu-flat-sm);
+}
+/* Inputs y Botones Neumórficos */
 .neu-inset {
   background: var(--bg-color);
-  border-radius: 12px;
-  padding: 14px 18px;
-  box-shadow: inset 4px 4px 8px var(--shadow-dark), inset -4px -4px 8px var(--shadow-light);
-  border: none;
+  border-radius: 14px;
+  padding: 14px 16px;
+  box-shadow: var(--neu-inset);
+  border: 1px solid rgba(255, 255, 255, 0.02);
   color: var(--text-color);
   outline: none;
   width: 100%;
-  font-size: 0.95rem;
+  font-size: 0.92rem;
 }
 
 .neu-button {
   background: var(--panel-bg);
   border: none;
-  border-radius: 12px;
+  border-radius: 14px;
   padding: 14px 20px;
   color: var(--accent-yellow);
-  font-weight: bold;
-  font-size: 1rem;
+  font-family: 'Outfit', sans-serif;
+  font-weight: 700;
+  font-size: 0.95rem;
   cursor: pointer;
-  box-shadow: 5px 5px 10px var(--shadow-dark), -5px -5px 10px var(--shadow-light);
+  box-shadow: var(--neu-flat-sm);
   width: 100%;
-  margin-top: 15px;
+  transition: all 0.2s;
 }
+
 .neu-button:active {
-  box-shadow: inset 3px 3px 6px var(--shadow-dark), inset -3px -3px 6px var(--shadow-light);
-}
+  box-shadow: var(--neu-inset);
+} 

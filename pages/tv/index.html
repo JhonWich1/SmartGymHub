@@ -7,21 +7,20 @@
   <script src="/socket.io/socket.io.js"></script>
   <link rel="stylesheet" href="/styles/styles.css">
 </head>
-<body>
+<body class="tv-screen">
 
   <header>
     <div class="brand">NEALTICAN GYM</div>
-    <div class="header-right">
+    <div style="display: flex; align-items: center; gap: 15px;">
       <div class="clock-display" id="liveClock">00:00 AM</div>
       <div class="tv-badge" id="tvNameDisplay">CARGANDO...</div>
     </div>
   </header>
 
   <div class="main-container">
-    <!-- Panel Izquierdo: Video Silencioso Autoplay -->
+    <!-- Panel Izquierdo: Video Gigante Restringido -->
     <div class="neu-panel video-card">
       <div class="video-container">
-        <!-- 'muted' permite reproducir video automáticamente sin interacción previa -->
         <video id="gymVideoPlayer" autoplay playsinline muted></video>
       </div>
 
@@ -55,7 +54,6 @@
     document.getElementById('tvNameDisplay').innerText = 
       tvId === 'tv1' ? 'TV 1 - PESOS LIBRES' : 'TV 2 - MÁQUINAS';
 
-    // Reloj digital en vivo
     function updateClock() {
       const now = new Date();
       document.getElementById('liveClock').innerText = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -63,24 +61,23 @@
     setInterval(updateClock, 1000);
     updateClock();
 
-    // Actualizar video e información cuando cambia la canción activa
     socket.on('song-changed', (data) => {
       document.getElementById('currentSongTitle').innerText = data.title;
       document.getElementById('songArtist').innerText = data.artist || 'NEALTICAN GYM';
       
-      if (data.thumbnail) {
-        document.getElementById('songThumbnail').src = data.thumbnail;
-      }
+      document.getElementById('songThumbnail').src = data.thumbnail || 'https://via.placeholder.com/50';
 
       if (data.videoUrl) {
         videoPlayer.src = data.videoUrl;
-        videoPlayer.play().catch(err => console.error('Error al reproducir video:', err));
+        videoPlayer.play().catch(err => console.error(err));
       } else {
+        // Limpieza completa del reproductor para quitar el cuadro congelado
+        videoPlayer.pause();
         videoPlayer.removeAttribute('src');
+        videoPlayer.load();
       }
     });
 
-    // Actualizar lista en pantalla
     socket.on('update-music-queue', (queue) => {
       const queueList = document.getElementById('musicQueueList');
       document.getElementById('queueCount').innerText = `(${queue.length})`;
@@ -95,7 +92,7 @@
         const li = document.createElement('li');
         li.className = 'queue-item';
         li.innerHTML = `
-          <img class="queue-thumb" src="${song.thumbnail || 'https://via.placeholder.com/40'}" alt="thumb" />
+          <img class="queue-thumb" src="${song.thumbnail || 'https://via.placeholder.com/40'}" />
           <div class="queue-info">
             <div class="queue-song-title">${song.title}</div>
             <div class="queue-song-artist">${song.artist}</div>
@@ -106,4 +103,4 @@
     });
   </script>
 </body>
-</html>
+</html> 

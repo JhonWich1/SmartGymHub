@@ -11,18 +11,18 @@ const server = http.createServer(app);
 const io = new Server(server);
 
 const PORT = process.env.PORT || 3000;
-const ADMIN_PIN = "1970"; // 🔑
-const MAX_SONGS_PER_IP = 2; // Máximo de canciones por usuario en la cola
-const MAX_DURATION_SECONDS = 480; // 8 minutos máximo por canción
+const ADMIN_PIN = "1234";
+const MAX_SONGS_PER_IP = 2;
+const MAX_DURATION_SECONDS = 480;
 const MPV_SOCKET = '/tmp/mpvsocket';
 
-// Rutas estáticas
+// Archivos estáticos
 app.use('/styles', express.static(path.join(__dirname, 'styles')));
 app.use('/mobile', express.static(path.join(__dirname, 'pages/mobile')));
 app.use('/tv', express.static(path.join(__dirname, 'pages/tv')));
 app.use('/admin', express.static(path.join(__dirname, 'pages/admin')));
 
-// Rutas de páginas
+// Rutas
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'pages/mobile/index.html')));
 app.get('/tv1', (req, res) => res.sendFile(path.join(__dirname, 'pages/tv/index.html')));
 app.get('/tv2', (req, res) => res.sendFile(path.join(__dirname, 'pages/tv/index.html')));
@@ -32,26 +32,19 @@ let musicQueue = [];
 let currentSong = null;
 let currentAudioProcess = null;
 
-// Estado del Servidor / Admin
 let isQueueLocked = false;
 let isPaused = false;
 let currentVolume = 100;
 
-/**
- * Envía comandos IPC directamente a MPV (pausa, volumen, etc.)
- */
 function sendMpvCommand(commandArray) {
   if (!fs.existsSync(MPV_SOCKET)) return;
   const client = net.connect(MPV_SOCKET, () => {
     client.write(JSON.stringify({ command: commandArray }) + '\n');
     client.end();
   });
-  client.on('error', () => {}); // Silenciar si no hay proceso activo
+  client.on('error', () => {});
 }
 
-/**
- * Extrae la metadata y valida las restricciones anti-spam
- */
 function getMediaData(youtubeUrl) {
   return new Promise((resolve, reject) => {
     const command = `yt-dlp -f "best[ext=mp4]/best" --dump-json --no-playlist "${youtubeUrl}"`;
@@ -63,7 +56,6 @@ function getMediaData(youtubeUrl) {
         const data = JSON.parse(stdout);
         const duration = data.duration || 0;
 
-        // Validar duración máxima ( Anti-Trolls )
         if (duration > MAX_DURATION_SECONDS) {
           return reject(`La canción excede el límite permitido de 8 minutos (${Math.round(duration / 60)} min).`);
         }
@@ -96,20 +88,27 @@ function getAudioOnlyUrl(youtubeUrl) {
   });
 }
 
-function playServerAudio(audioUrl) {
+/**
+ * Detiene de forma limpia el proceso mpv actual evitando bucles de eventos
+ */
+function stopCurrentAudio() {
   if (currentAudioProcess) {
-    currentAudioProcess.kill();
+    currentAudioProcess.removeAllListeners('close'); // Elimina el callback para evitar re-invocación
+    currentAudioProcess.kill('SIGKILL');
     currentAudioProcess = null;
   }
+}
 
-  // Eliminar socket anterior si existe
+function playServerAudio(audioUrl) {
+  stopCurrentAudio();
+
   if (fs.existsSync(MPV_SOCKET)) {
     try { fs.unlinkSync(MPV_SOCKET); } catch(e){}
   }
 
   if (!audioUrl) return;
 
-  console.log('[Audio Server] Reproduciendo en la bocina...');
+  console.log('[Audio Server] Reproduciendo audio...');
   
   currentAudioProcess = spawn('mpv', [
     '--no-video',
@@ -121,7 +120,7 @@ function playServerAudio(audioUrl) {
   isPaused = false;
   io.emit('player-status-changed', { isPaused, volume: currentVolume });
 
-  currentAudioProcess.on('close', (code) => {
+  currentAudioProcess.on('close', () => {
     currentAudioProcess = null;
     playNextSong();
   });
@@ -130,16 +129,16 @@ function playServerAudio(audioUrl) {
 async function playNextSong() {
   if (musicQueue.length === 0) {
     currentSong = null;
-    if (currentAudioProcess) {
-      currentAudioProcess.kill();
-      currentAudioProcess = null;
-    }
+    stopCurrentAudio();
+    
+    // Notificar a las TVs y Admin que la reproducción ha finalizado por completo
     io.emit('song-changed', {
       title: 'Esperando canción...',
       artist: 'Nealtican Gym',
       thumbnail: '',
       videoUrl: null
     });
+    io.emit('update-music-queue', musicQueue);
     return;
   }
 
@@ -149,11 +148,10 @@ async function playNextSong() {
   playServerAudio(currentSong.audioUrl);
 }
 
-// Control de WebSockets
+// Websockets
 io.on('connection', (socket) => {
   const clientIp = socket.handshake.address;
 
-  // Estado inicial
   socket.emit('update-music-queue', musicQueue);
   socket.emit('queue-lock-changed', isQueueLocked);
   socket.emit('player-status-changed', { isPaused, volume: currentVolume });
@@ -164,22 +162,19 @@ io.on('connection', (socket) => {
     videoUrl: null
   });
 
-  // --- ACCIONES DE USUARIOS MÓVILES ---
   socket.on('add-song', async (data) => {
-    // 1. Validar bloqueo de cola
     if (isQueueLocked) {
-      return socket.emit('song-error', 'La cola de canciones está pausada por la administración.');
+      return socket.emit('song-error', 'La cola está pausada por la administración.');
     }
 
-    // 2. Validar límite por IP
     const userSongsInQueue = musicQueue.filter(song => song.clientIp === clientIp).length;
     if (userSongsInQueue >= MAX_SONGS_PER_IP) {
-      return socket.emit('song-error', `Ya tienes ${MAX_SONGS_PER_IP} canciones en la fila. Espera a que se reproduzcan.`);
+      return socket.emit('song-error', `Ya tienes ${MAX_SONGS_PER_IP} canciones en la fila.`);
     }
 
     try {
       const mediaData = await getMediaData(data.url);
-      mediaData.clientIp = clientIp; // Registrar IP del creador
+      mediaData.clientIp = clientIp;
 
       if (!currentSong) {
         currentSong = mediaData;
@@ -189,19 +184,33 @@ io.on('connection', (socket) => {
         musicQueue.push(mediaData);
         io.emit('update-music-queue', musicQueue);
       }
-      socket.emit('song-added-success', '¡Canción añadida con éxito!');
+      socket.emit('song-added-success', '¡Canción añadida!');
     } catch (err) {
       socket.emit('song-error', typeof err === 'string' ? err : 'Enlace no válido.');
     }
   });
 
-  // --- ACCIONES DE ADMINISTRACIÓN (/ADMIN) ---
-  socket.on('admin-login', (pin) => {
-    if (pin === ADMIN_PIN) {
-      socket.emit('admin-auth-success');
-    } else {
-      socket.emit('admin-auth-fail', 'PIN Incorrecto');
+  socket.on('admin-add-song', async (data) => {
+    try {
+      const mediaData = await getMediaData(data.url);
+      mediaData.clientIp = 'ADMIN';
+
+      if (!currentSong) {
+        currentSong = mediaData;
+        io.emit('song-changed', currentSong);
+        playServerAudio(currentSong.audioUrl);
+      } else {
+        musicQueue.push(mediaData);
+        io.emit('update-music-queue', musicQueue);
+      }
+    } catch (err) {
+      socket.emit('song-error', 'Error al procesar la canción solicitada.');
     }
+  });
+
+  socket.on('admin-login', (pin) => {
+    if (pin === ADMIN_PIN) socket.emit('admin-auth-success');
+    else socket.emit('admin-auth-fail', 'PIN Incorrecto');
   });
 
   socket.on('admin-toggle-pause', () => {
@@ -237,8 +246,5 @@ io.on('connection', (socket) => {
 });
 
 server.listen(PORT, () => {
-  console.log(`=================================================`);
-  console.log(` Servidor Nealtican Gym activo en http://localhost:${PORT}`);
-  console.log(` Panel Admin disponible en: http://localhost:${PORT}/admin`);
-  console.log(`=================================================`);
-}); 
+  console.log(`Servidor Nealtican Gym escuchando en http://localhost:${PORT}`);
+});
