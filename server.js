@@ -1,7 +1,7 @@
 const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
-const { exec } = require('child_process');
+const { exec, spawn } = require('child_process');
 const path = require('path');
 
 const app = express();
@@ -10,66 +10,95 @@ const io = new Server(server);
 
 const PORT = process.env.PORT || 3000;
 
-// Servir archivos estáticos
+// Archivos estáticos
 app.use('/styles', express.static(path.join(__dirname, 'styles')));
 app.use('/mobile', express.static(path.join(__dirname, 'pages/mobile')));
 app.use('/tv', express.static(path.join(__dirname, 'pages/tv')));
 
-// Rutas de navegación
-app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'pages/mobile/index.html'));
-});
+// Rutas
+app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'pages/mobile/index.html')));
+app.get('/tv1', (req, res) => res.sendFile(path.join(__dirname, 'pages/tv/index.html')));
+app.get('/tv2', (req, res) => res.sendFile(path.join(__dirname, 'pages/tv/index.html')));
 
-app.get('/tv1', (req, res) => {
-  res.sendFile(path.join(__dirname, 'pages/tv/index.html'));
-});
-
-app.get('/tv2', (req, res) => {
-  res.sendFile(path.join(__dirname, 'pages/tv/index.html'));
-});
-
-// Estado global de la cola y reproducción
 let musicQueue = [];
 let currentSong = null;
+let currentAudioProcess = null; // Guardará el proceso del reproductor de audio mpv
 
 /**
- * Extrae metadata completa y el stream directo de video MP4 usando yt-dlp
- * @param {string} youtubeUrl 
- * @returns {Promise<Object>}
+ * Extrae metadata, stream de video y stream de audio con yt-dlp
  */
 function getMediaData(youtubeUrl) {
   return new Promise((resolve, reject) => {
-    // -f "best[ext=mp4]/best": Selecciona el mejor flujo de video+audio en MP4
-    // --dump-json: Extrae la información estructurada sin descargar el archivo
+    // --dump-json para obtener URLs separadas de audio y video
     const command = `yt-dlp -f "best[ext=mp4]/best" --dump-json --no-playlist "${youtubeUrl}"`;
 
-    exec(command, { maxBuffer: 1024 * 1024 * 15 }, (error, stdout, stderr) => {
+    exec(command, { maxBuffer: 1024 * 1024 * 15 }, async (error, stdout, stderr) => {
       if (error) {
-        console.error('Error extrayendo metadata con yt-dlp:', stderr);
+        console.error('Error yt-dlp:', stderr);
         return reject(error);
       }
       try {
         const data = JSON.parse(stdout);
+        
+        // Obtener URL directa de solo audio para el servidor mpv
+        const audioUrl = await getAudioOnlyUrl(youtubeUrl);
+
         resolve({
-          title: data.title || 'Música Ambiental',
+          url: youtubeUrl,
+          title: data.title || 'Canción de Gym',
           artist: data.uploader || data.channel || 'Nealtican Gym',
           thumbnail: data.thumbnail || '',
-          videoUrl: data.url
+          videoUrl: data.url,
+          audioUrl: audioUrl
         });
       } catch (parseErr) {
-        console.error('Error procesando JSON de yt-dlp:', parseErr);
         reject(parseErr);
       }
     });
   });
 }
 
+function getAudioOnlyUrl(youtubeUrl) {
+  return new Promise((resolve) => {
+    exec(`yt-dlp -f bestaudio -g "${youtubeUrl}"`, (err, stdout) => {
+      if (err) resolve(null);
+      else resolve(stdout.trim().split('\n')[0]);
+    });
+  });
+}
+
 /**
- * Procesa y reproduce el siguiente elemento de la cola
+ * Reproduce el audio localmente en el Servidor (Parrot/Ubuntu) vía mpv
  */
+function playServerAudio(audioUrl) {
+  // Si hay un audio sonando actualmente, lo detenemos
+  if (currentAudioProcess) {
+    currentAudioProcess.kill();
+    currentAudioProcess = null;
+  }
+
+  if (!audioUrl) return;
+
+  console.log('[Audio Server] Reproduciendo audio por Bocina Bluetooth...');
+  
+  // Ejecutar mpv sin video y enviando la salida al sistema de audio de Linux
+  currentAudioProcess = spawn('mpv', ['--no-video', '--no-terminal', audioUrl]);
+
+  // Cuando mpv termina la canción, saltamos a la siguiente
+  currentAudioProcess.on('close', (code) => {
+    console.log(`[Audio Server] Fin de pista (código ${code}). Siguiente en fila...`);
+    currentAudioProcess = null;
+    playNextSong();
+  });
+}
+
 async function playNextSong() {
   if (musicQueue.length === 0) {
     currentSong = null;
+    if (currentAudioProcess) {
+      currentAudioProcess.kill();
+      currentAudioProcess = null;
+    }
     io.emit('song-changed', {
       title: 'Esperando canción...',
       artist: 'Nealtican Gym',
@@ -79,71 +108,47 @@ async function playNextSong() {
     return;
   }
 
-  const nextItem = musicQueue.shift();
+  currentSong = musicQueue.shift();
   io.emit('update-music-queue', musicQueue);
+  io.emit('song-changed', currentSong);
 
-  try {
-    console.log(`\n[yt-dlp] Procesando enlace: ${nextItem.url}`);
-    const mediaData = await getMediaData(nextItem.url);
-
-    currentSong = mediaData;
-    console.log(`[Media Ready] Sonando: "${currentSong.title}" por ${currentSong.artist}`);
-    
-    io.emit('song-changed', currentSong);
-
-  } catch (err) {
-    console.error('Error procesando el enlace. Saltando a la siguiente canción...', err);
-    playNextSong();
-  }
+  // Iniciar reproducción de audio en la PC Servidora
+  playServerAudio(currentSong.audioUrl);
 }
 
-// Control de WebSockets
+// Websockets
 io.on('connection', (socket) => {
-  console.log(`[Socket] Cliente conectado: ${socket.id}`);
-
-  // Enviar el estado actual al cliente que se acaba de conectar
   socket.emit('update-music-queue', musicQueue);
+  socket.emit('song-changed', currentSong || {
+    title: 'Esperando canción...',
+    artist: 'Nealtican Gym',
+    thumbnail: '',
+    videoUrl: null
+  });
 
-  if (currentSong) {
-    socket.emit('song-changed', currentSong);
-  } else {
-    socket.emit('song-changed', {
-      title: 'Esperando canción...',
-      artist: 'Nealtican Gym',
-      thumbnail: '',
-      videoUrl: null
-    });
-  }
+  socket.on('add-song', async (data) => {
+    console.log(`[Petición Móvil] Procesando: ${data.url}`);
+    
+    try {
+      const mediaData = await getMediaData(data.url);
 
-  // Recibir petición de canción desde el celular
-  socket.on('add-song', (data) => {
-    console.log(`[Socket] Canción recibida desde móvil: ${data.url}`);
-    const songObj = { url: data.url };
-
-    if (!currentSong) {
-      musicQueue.push(songObj);
-      playNextSong();
-    } else {
-      musicQueue.push(songObj);
-      io.emit('update-music-queue', musicQueue);
+      if (!currentSong) {
+        currentSong = mediaData;
+        io.emit('song-changed', currentSong);
+        playServerAudio(currentSong.audioUrl);
+      } else {
+        musicQueue.push(mediaData);
+        io.emit('update-music-queue', musicQueue);
+      }
+    } catch (err) {
+      console.error('Error procesando canción:', err);
     }
-  });
-
-  // Notificación emitida por la TV cuando el reproductor finaliza el video
-  socket.on('song-ended', () => {
-    console.log('[Socket] Fin de canción reportado por TV. Siguiente en fila...');
-    playNextSong();
-  });
-
-  socket.on('disconnect', () => {
-    console.log(`[Socket] Cliente desconectado: ${socket.id}`);
   });
 });
 
-// Iniciar servidor
 server.listen(PORT, () => {
   console.log(`=================================================`);
-  console.log(` Servidor Nealtican Gym listo y escuchando en:`);
-  console.log(` http://localhost:${PORT}`);
+  console.log(` Servidor Nealtican Gym activo en http://localhost:${PORT}`);
+  console.log(` Audio asignado al sistema Linux (Bocina Bluetooth)`);
   console.log(`=================================================`);
 });

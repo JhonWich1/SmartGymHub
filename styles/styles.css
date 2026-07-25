@@ -1,34 +1,36 @@
 :root {
-  --bg-color: #1a1a1a;
-  --panel-bg: #1a1a1a;
+  --bg-color: #141414;
+  --panel-bg: #1e1e1e;
   --text-color: #ffffff;
   --text-muted: #aaaaaa;
   --accent-yellow: #ffcc00;
-  --shadow-dark: #121212;
-  --shadow-light: #242424;
+  --shadow-dark: #0d0d0d;
+  --shadow-light: #262626;
 }
 
 * {
   box-sizing: border-box;
   margin: 0;
   padding: 0;
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
 }
 
 body {
   background-color: var(--bg-color);
   color: var(--text-color);
-  min-height: 100vh;
+  height: 100vh;
   display: flex;
   flex-direction: column;
-  padding: 20px;
+  padding: 15px 25px;
+  overflow: hidden;
 }
 
 header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 25px;
+  margin-bottom: 15px;
+  height: 45px;
 }
 
 .brand {
@@ -36,37 +38,199 @@ header {
   font-weight: 900;
   color: var(--accent-yellow);
   letter-spacing: 2px;
-  text-shadow: 0 0 10px rgba(255, 204, 0, 0.2);
+  text-shadow: 0 0 12px rgba(255, 204, 0, 0.25);
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+.clock-display {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--text-color);
+  background: var(--panel-bg);
+  padding: 6px 14px;
+  border-radius: 12px;
+  box-shadow: 3px 3px 6px var(--shadow-dark), -3px -3px 6px var(--shadow-light);
 }
 
 .tv-badge {
   background: var(--bg-color);
   color: var(--accent-yellow);
-  padding: 8px 16px;
-  border-radius: 20px;
+  padding: 6px 14px;
+  border-radius: 12px;
   font-weight: bold;
   font-size: 0.85rem;
-  letter-spacing: 1px;
-  box-shadow: 3px 3px 6px var(--shadow-dark),
-              -3px -3px 6px var(--shadow-light);
+  box-shadow: inset 2px 2px 5px var(--shadow-dark), inset -2px -2px 5px var(--shadow-light);
 }
 
-/* Paneles Neumórficos */
+/* Layout Grid Ajustado: Video Ancho / Cola Compacta */
+.main-container {
+  display: grid;
+  grid-template-columns: 1fr 310px;
+  gap: 20px;
+  height: calc(100vh - 90px);
+}
+
 .neu-panel {
   background: var(--panel-bg);
   border-radius: 20px;
-  padding: 25px;
-  box-shadow: 8px 8px 16px var(--shadow-dark),
-              -8px -8px 16px var(--shadow-light);
-  margin-bottom: 20px;
+  padding: 20px;
+  box-shadow: 6px 6px 14px var(--shadow-dark), -6px -6px 14px var(--shadow-light);
+  display: flex;
+  flex-direction: column;
 }
 
+/* Contenedor de Video Gigante */
+.video-card {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.video-container {
+  width: 100%;
+  flex: 1;
+  max-height: 72vh;
+  border-radius: 16px;
+  overflow: hidden;
+  background: #000;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  box-shadow: inset 4px 4px 10px #000;
+}
+
+video {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+/* Detalle de Canción en 1 sola línea */
+.song-info-footer {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  margin-top: 15px;
+  background: var(--bg-color);
+  padding: 10px 15px;
+  border-radius: 14px;
+  box-shadow: inset 3px 3px 6px var(--shadow-dark), inset -3px -3px 6px var(--shadow-light);
+}
+
+.song-cover {
+  width: 50px;
+  height: 50px;
+  border-radius: 10px;
+  object-fit: cover;
+  border: 2px solid var(--accent-yellow);
+  flex-shrink: 0;
+}
+
+.song-text-details {
+  flex: 1;
+  min-width: 0; /* Permite el recorte ellipsis */
+}
+
+.song-artist {
+  font-size: 0.75rem;
+  color: var(--accent-yellow);
+  font-weight: bold;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.song-title-single {
+  font-size: 1.2rem;
+  font-weight: bold;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis; /* Corta con "..." en 1 sola línea */
+  color: #ffffff;
+}
+
+/* Sidebar de Cola de Espera */
+.queue-card {
+  overflow: hidden;
+}
+
+.queue-title {
+  color: var(--accent-yellow);
+  font-weight: bold;
+  margin-bottom: 15px;
+  font-size: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.queue-list {
+  list-style: none;
+  overflow-y: auto;
+  flex: 1;
+  padding-right: 5px;
+}
+
+/* Scrollbar personalizado */
+.queue-list::-webkit-scrollbar {
+  width: 5px;
+}
+.queue-list::-webkit-scrollbar-thumb {
+  background: var(--shadow-light);
+  border-radius: 4px;
+}
+
+.queue-item {
+  background: var(--bg-color);
+  padding: 10px;
+  border-radius: 12px;
+  margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  box-shadow: 3px 3px 6px var(--shadow-dark), -3px -3px 6px var(--shadow-light);
+}
+
+.queue-thumb {
+  width: 40px;
+  height: 40px;
+  border-radius: 6px;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.queue-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.queue-song-title {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #fff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.queue-song-artist {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Estilos de Entrada para Móvil */
 .neu-inset {
-  background: var(--panel-bg);
+  background: var(--bg-color);
   border-radius: 12px;
   padding: 14px 18px;
-  box-shadow: inset 4px 4px 8px var(--shadow-dark),
-              inset -4px -4px 8px var(--shadow-light);
+  box-shadow: inset 4px 4px 8px var(--shadow-dark), inset -4px -4px 8px var(--shadow-light);
   border: none;
   color: var(--text-color);
   outline: none;
@@ -83,93 +247,10 @@ header {
   font-weight: bold;
   font-size: 1rem;
   cursor: pointer;
-  box-shadow: 5px 5px 10px var(--shadow-dark),
-              -5px -5px 10px var(--shadow-light);
-  transition: all 0.2s ease;
+  box-shadow: 5px 5px 10px var(--shadow-dark), -5px -5px 10px var(--shadow-light);
   width: 100%;
+  margin-top: 15px;
 }
-
 .neu-button:active {
-  box-shadow: inset 3px 3px 6px var(--shadow-dark),
-              inset -3px -3px 6px var(--shadow-light);
-  color: #d4a700;
-}
-
-/* Layout Grid para Pantallas TV */
-.main-container {
-  display: grid;
-  grid-template-columns: 2fr 1fr;
-  gap: 20px;
-  flex: 1;
-}
-
-@media (max-width: 768px) {
-  .main-container {
-    grid-template-columns: 1fr;
-  }
-}
-
-/* Tarjeta de Reproducción */
-.music-player-card {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
-  min-height: 350px;
-}
-
-.disc-icon {
-  width: 120px;
-  height: 120px;
-  border-radius: 50%;
-  background: var(--bg-color);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 3rem;
-  color: var(--accent-yellow);
-  box-shadow: 6px 6px 12px var(--shadow-dark),
-              -6px -6px 12px var(--shadow-light);
-  border: 3px solid var(--accent-yellow);
-  margin-bottom: 25px;
-}
-
-.song-status {
-  font-size: 0.9rem;
-  color: var(--accent-yellow);
-  text-transform: uppercase;
-  letter-spacing: 2px;
-  margin-bottom: 8px;
-}
-
-.song-title {
-  font-size: 1.8rem;
-  font-weight: bold;
-  word-break: break-all;
-  max-width: 90%;
-}
-
-/* Lista de Cola */
-.queue-title {
-  color: var(--accent-yellow);
-  font-weight: bold;
-  margin-bottom: 15px;
-  font-size: 1.1rem;
-}
-
-.queue-list {
-  list-style: none;
-}
-
-.queue-item {
-  background: var(--bg-color);
-  padding: 12px 16px;
-  border-radius: 10px;
-  margin-bottom: 10px;
-  font-size: 0.85rem;
-  color: var(--text-muted);
-  box-shadow: inset 2px 2px 5px var(--shadow-dark),
-              inset -2px -2px 5px var(--shadow-light);
-  word-break: break-all;
+  box-shadow: inset 3px 3px 6px var(--shadow-dark), inset -3px -3px 6px var(--shadow-light);
 }

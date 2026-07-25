@@ -7,42 +7,36 @@
   <script src="/socket.io/socket.io.js"></script>
   <link rel="stylesheet" href="/styles/styles.css">
 </head>
-<body>
+<body style="overflow-y: auto;">
   <header>
     <div class="brand">NEALTICAN GYM</div>
     <div class="tv-badge">MÓVIL</div>
   </header>
 
-  <main style="max-width: 500px; margin: 0 auto; width: 100%;">
-    <!-- Panel Agregar Canción -->
-    <div class="neu-panel">
-      <h2 style="color: var(--accent-yellow); margin-bottom: 15px; font-size: 1.2rem;">🎵 Agregar Música</h2>
+  <main style="max-width: 480px; margin: 0 auto; width: 100%;">
+    <!-- Formulario Agregar Música -->
+    <div class="neu-panel" style="margin-bottom: 20px;">
+      <h2 style="color: var(--accent-yellow); margin-bottom: 12px; font-size: 1.1rem;">🎵 Agregar Música</h2>
       
       <form id="musicForm" onsubmit="sendSong(event)">
-        <div style="margin-bottom: 15px;">
-          <label style="font-size: 0.85rem; color: var(--text-muted); display: block; margin-bottom: 8px;">
-            Enlace de YouTube:
-          </label>
-          <input 
-            type="url" 
-            id="youtubeUrl" 
-            class="neu-inset" 
-            placeholder="https://youtu.be/..." 
-            required 
-          />
-        </div>
-
-        <button type="submit" class="neu-button">
-          Añadir a la Fila
-        </button>
+        <input 
+          type="url" 
+          id="youtubeUrl" 
+          class="neu-inset" 
+          placeholder="Pega el enlace de YouTube aquí..." 
+          required 
+        />
+        <button type="submit" class="neu-button">Añadir a la Fila</button>
       </form>
     </div>
 
-    <!-- Panel Cola de Espera -->
+    <!-- Lista de Canciones en Espera -->
     <div class="neu-panel">
-      <div class="queue-title">Próximas Canciones</div>
+      <div class="queue-title">
+        <span>Próximas Canciones</span>
+      </div>
       <ul class="queue-list" id="mobileQueueList">
-        <li class="queue-item">Cargando cola...</li>
+        <li style="color: var(--text-muted); font-size: 0.85rem; padding: 10px;">No hay canciones pendientes</li>
       </ul>
     </div>
   </main>
@@ -58,7 +52,6 @@
       if (url) {
         socket.emit('add-song', { url: url });
         urlInput.value = '';
-        alert('¡Canción enviada!');
       }
     }
 
@@ -67,14 +60,20 @@
       queueList.innerHTML = '';
 
       if (queue.length === 0) {
-        queueList.innerHTML = '<li class="queue-item">No hay canciones pendientes</li>';
+        queueList.innerHTML = '<li style="color: var(--text-muted); font-size: 0.85rem; padding: 10px;">No hay canciones pendientes</li>';
         return;
       }
 
       queue.forEach((song, index) => {
         const li = document.createElement('li');
         li.className = 'queue-item';
-        li.innerText = `${index + 1}. 🎵 ${song.url}`;
+        li.innerHTML = `
+          <img class="queue-thumb" src="${song.thumbnail || 'https://via.placeholder.com/40'}" alt="thumb" />
+          <div class="queue-info">
+            <div class="queue-song-title">${index + 1}. ${song.title}</div>
+            <div class="queue-song-artist">${song.artist}</div>
+          </div>
+        `;
         queueList.appendChild(li);
       });
     });

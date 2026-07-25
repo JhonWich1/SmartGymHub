@@ -6,91 +6,42 @@
   <title>Nealtican Gym - Display TV</title>
   <script src="/socket.io/socket.io.js"></script>
   <link rel="stylesheet" href="/styles/styles.css">
-  <style>
-    #audioUnlocker {
-      position: fixed;
-      top: 0; left: 0; width: 100vw; height: 100vh;
-      background: rgba(18, 18, 18, 0.95);
-      z-index: 9999;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      color: var(--accent-yellow);
-      cursor: pointer;
-    }
-    
-    /* Repro de video estilizado */
-    .video-container {
-      width: 100%;
-      max-height: 380px;
-      border-radius: 15px;
-      overflow: hidden;
-      background: #000;
-      margin-bottom: 15px;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-    }
-
-    video {
-      width: 100%;
-      height: 100%;
-      object-fit: contain;
-    }
-
-    .song-cover {
-      width: 80px;
-      height: 80px;
-      border-radius: 12px;
-      object-fit: cover;
-      margin-right: 15px;
-      border: 2px solid var(--accent-yellow);
-    }
-
-    .song-info-group {
-      display: flex;
-      align-items: center;
-      text-align: left;
-      width: 100%;
-    }
-  </style>
 </head>
 <body>
 
-  <div id="audioUnlocker">
-    <h1 style="font-size: 3rem; margin-bottom: 15px;">🔊 NEALTICAN GYM</h1>
-    <p style="font-size: 1.4rem; color: #ffffff;">Haz clic aquí para activar audio y video</p>
-  </div>
-
   <header>
     <div class="brand">NEALTICAN GYM</div>
-    <div class="tv-badge" id="tvNameDisplay">CARGANDO...</div>
+    <div class="header-right">
+      <div class="clock-display" id="liveClock">00:00 AM</div>
+      <div class="tv-badge" id="tvNameDisplay">CARGANDO...</div>
+    </div>
   </header>
 
   <div class="main-container">
-    <!-- Panel Principal con Reproductor de Video -->
-    <div class="neu-panel music-player-card" style="justify-content: flex-start;">
-      
+    <!-- Panel Izquierdo: Video Silencioso Autoplay -->
+    <div class="neu-panel video-card">
       <div class="video-container">
-        <video id="gymVideoPlayer" autoplay playsinline></video>
+        <!-- 'muted' permite reproducir video automáticamente sin interacción previa -->
+        <video id="gymVideoPlayer" autoplay playsinline muted></video>
       </div>
 
-      <div class="song-info-group">
-        <img id="songThumbnail" src="https://via.placeholder.com/80" class="song-cover" alt="Portada" />
-        <div>
-          <div class="song-status" id="songArtist">SONANDO EN EL GYM</div>
-          <div class="song-title" id="currentSongTitle" style="font-size: 1.3rem;">Esperando canción...</div>
+      <div class="song-info-footer">
+        <img id="songThumbnail" src="https://via.placeholder.com/50" class="song-cover" alt="Portada" />
+        <div class="song-text-details">
+          <div class="song-artist" id="songArtist">SONANDO EN EL GYM</div>
+          <div class="song-title-single" id="currentSongTitle">Esperando canción...</div>
         </div>
       </div>
-
     </div>
 
-    <!-- Lista de Espera -->
-    <div class="neu-panel music-queue-card">
-      <div class="queue-title">Próximas en Fila</div>
+    <!-- Panel Derecho: Cola Compacta -->
+    <div class="neu-panel queue-card">
+      <div class="queue-title">
+        <span>Próximas en Fila</span>
+        <span id="queueCount" style="font-size: 0.8rem; color: var(--text-muted);">(0)</span>
+      </div>
       <ul class="queue-list" id="musicQueueList">
-        <li class="queue-item">No hay canciones en cola</li>
+        <li style="color: var(--text-muted); font-size: 0.85rem; padding: 10px;">No hay canciones en cola</li>
       </ul>
     </div>
   </div>
@@ -102,27 +53,20 @@
     const tvId = pathname.includes('tv2') ? 'tv2' : 'tv1';
 
     document.getElementById('tvNameDisplay').innerText = 
-      tvId === 'tv1' ? 'TV 1 - ZONA PESOS LIBRES' : 'TV 2 - ZONA MÁQUINAS';
+      tvId === 'tv1' ? 'TV 1 - PESOS LIBRES' : 'TV 2 - MÁQUINAS';
 
-    let mediaUnlocked = false;
+    // Reloj digital en vivo
+    function updateClock() {
+      const now = new Date();
+      document.getElementById('liveClock').innerText = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    }
+    setInterval(updateClock, 1000);
+    updateClock();
 
-    document.getElementById('audioUnlocker').addEventListener('click', () => {
-      mediaUnlocked = true;
-      document.getElementById('audioUnlocker').style.display = 'none';
-      if (videoPlayer.src) {
-        videoPlayer.play().catch(e => console.log('Iniciando reproductor...'));
-      }
-    });
-
-    // Pasar a la siguiente canción al terminar el video
-    videoPlayer.addEventListener('ended', () => {
-      socket.emit('song-ended');
-    });
-
-    // Actualización de estado en tiempo real
+    // Actualizar video e información cuando cambia la canción activa
     socket.on('song-changed', (data) => {
       document.getElementById('currentSongTitle').innerText = data.title;
-      document.getElementById('songArtist').innerText = data.artist || 'SONANDO EN EL GYM';
+      document.getElementById('songArtist').innerText = data.artist || 'NEALTICAN GYM';
       
       if (data.thumbnail) {
         document.getElementById('songThumbnail').src = data.thumbnail;
@@ -130,27 +74,33 @@
 
       if (data.videoUrl) {
         videoPlayer.src = data.videoUrl;
-        if (mediaUnlocked) {
-          videoPlayer.play().catch(err => console.error('Error de reproducción:', err));
-        }
+        videoPlayer.play().catch(err => console.error('Error al reproducir video:', err));
       } else {
         videoPlayer.removeAttribute('src');
       }
     });
 
+    // Actualizar lista en pantalla
     socket.on('update-music-queue', (queue) => {
       const queueList = document.getElementById('musicQueueList');
+      document.getElementById('queueCount').innerText = `(${queue.length})`;
       queueList.innerHTML = '';
 
       if (queue.length === 0) {
-        queueList.innerHTML = '<li class="queue-item">No hay canciones en cola</li>';
+        queueList.innerHTML = '<li style="color: var(--text-muted); font-size: 0.85rem; padding: 10px;">No hay canciones en cola</li>';
         return;
       }
 
       queue.forEach((song) => {
         const li = document.createElement('li');
         li.className = 'queue-item';
-        li.innerText = `🎵 ${song.url}`;
+        li.innerHTML = `
+          <img class="queue-thumb" src="${song.thumbnail || 'https://via.placeholder.com/40'}" alt="thumb" />
+          <div class="queue-info">
+            <div class="queue-song-title">${song.title}</div>
+            <div class="queue-song-artist">${song.artist}</div>
+          </div>
+        `;
         queueList.appendChild(li);
       });
     });
