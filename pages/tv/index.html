@@ -6,6 +6,85 @@
   <title>Nealtican Gym - Display TV</title>
   <script src="/socket.io/socket.io.js"></script>
   <link rel="stylesheet" href="/styles/styles.css">
+  <style>
+    /* Estilos para el reproductor alternativo */
+    .video-placeholder {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: rgba(15, 23, 42, 0.95);
+      border-radius: 16px;
+      color: #f8fafc;
+      text-align: center;
+      padding: 20px;
+    }
+    .video-placeholder img {
+      width: 160px;
+      height: 160px;
+      border-radius: 12px;
+      object-fit: cover;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+      margin-bottom: 15px;
+    }
+    .video-placeholder p {
+      font-size: 1.1rem;
+      color: #94a3b8;
+    }
+
+    /* Secciones informativas para los usuarios del gym */
+    .tv-sidebar {
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+      height: 100%;
+    }
+
+    .gym-rules-card {
+      padding: 14px 16px;
+      background: rgba(30, 41, 59, 0.8);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 14px;
+      font-size: 0.82rem;
+      color: #cbd5e1;
+    }
+    .gym-rules-title {
+      font-weight: bold;
+      color: #f59e0b;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      font-size: 0.85rem;
+    }
+    .gym-rules-list {
+      margin: 0;
+      padding-left: 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      line-height: 1.4;
+      color: #94a3b8;
+    }
+    .gym-rules-list strong {
+      color: #f8fafc;
+    }
+
+    .connect-notice {
+      background: rgba(245, 158, 11, 0.1);
+      border: 1px dashed rgba(245, 158, 11, 0.4);
+      padding: 10px 14px;
+      border-radius: 10px;
+      margin-bottom: 12px;
+      font-size: 0.8rem;
+      color: #fbbf24;
+      text-align: center;
+    }
+  </style>
 </head>
 <body class="tv-screen">
 
@@ -18,10 +97,16 @@
   </header>
 
   <div class="main-container">
-    <!-- Panel Izquierdo: Video Gigante Restringido -->
+    <!-- Panel Izquierdo: Video Gigante -->
     <div class="neu-panel video-card">
       <div class="video-container">
-        <video id="gymVideoPlayer" autoplay playsinline muted></video>
+        <video id="gymVideoPlayer" autoplay playsinline muted preload="auto"></video>
+        
+        <!-- Vista alternativa si el video no carga -->
+        <div id="videoPlaceholder" class="video-placeholder" style="display: none;">
+          <img id="placeholderThumb" src="https://via.placeholder.com/160" alt="Portada" />
+          <p>Sonando en las bocinas del Gym</p>
+        </div>
       </div>
 
       <div class="song-info-footer">
@@ -33,27 +118,54 @@
       </div>
     </div>
 
-    <!-- Panel Derecho: Cola Compacta -->
-    <div class="neu-panel queue-card">
-      <div class="queue-title">
-        <span>Próximas en Fila</span>
-        <span id="queueCount" style="font-size: 0.8rem; color: var(--text-muted);">(0)</span>
+    <!-- Panel Derecho: Cola y Reglas del Gimnasio -->
+    <div class="tv-sidebar">
+      
+      <!-- Lista en Cola -->
+      <div class="neu-panel queue-card" style="flex: 1;">
+        <div class="queue-title">
+          <span>Próximas en Fila</span>
+          <span id="queueCount" style="font-size: 0.8rem; color: var(--text-muted);">(0)</span>
+        </div>
+        <ul class="queue-list" id="musicQueueList">
+          <li style="color: var(--text-muted); font-size: 0.85rem; padding: 10px;">No hay canciones en cola</li>
+        </ul>
       </div>
-      <ul class="queue-list" id="musicQueueList">
-        <li style="color: var(--text-muted); font-size: 0.85rem; padding: 10px;">No hay canciones en cola</li>
-      </ul>
+
+      <!-- Tarjeta de Indicaciones y Reglas para el Usuario -->
+      <div class="gym-rules-card">
+        <div class="connect-notice">
+          📲 <strong>¿Quieres pedir tu música?</strong><br>
+          Conéctate al Wi-Fi del Gym e ingresa desde tu navegador.
+        </div>
+        <div class="gym-rules-title">📌 Reglas del Sistema</div>
+        <ul class="gym-rules-list">
+          <li><strong>Límite:</strong> Máximo 2 canciones por persona en fila.</li>
+          <li><strong>Duración:</strong> Canciones de máximo 8 minutos.</li>
+          <li><strong>Enlaces:</strong> Solo enlaces válidos de YouTube.</li>
+          <li><strong>Respeto:</strong> Contenido inapropiado será removido por Admin.</li>
+        </ul>
+      </div>
+
     </div>
   </div>
 
   <script>
     const socket = io();
     const videoPlayer = document.getElementById('gymVideoPlayer');
+    const videoPlaceholder = document.getElementById('videoPlaceholder');
+    const placeholderThumb = document.getElementById('placeholderThumb');
+    
     const pathname = window.location.pathname.toLowerCase();
     const tvId = pathname.includes('tv2') ? 'tv2' : 'tv1';
 
+    let hasSignaledStart = false;
+
+    // Identificación del área de la TV
     document.getElementById('tvNameDisplay').innerText = 
       tvId === 'tv1' ? 'TV 1 - PESOS LIBRES' : 'TV 2 - MÁQUINAS';
 
+    // Reloj en tiempo real
     function updateClock() {
       const now = new Date();
       document.getElementById('liveClock').innerText = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -61,30 +173,80 @@
     setInterval(updateClock, 1000);
     updateClock();
 
-    socket.on('song-changed', (data) => {
-      document.getElementById('currentSongTitle').innerText = data.title;
-      document.getElementById('songArtist').innerText = data.artist || 'NEALTICAN GYM';
-      
-      document.getElementById('songThumbnail').src = data.thumbnail || 'https://via.placeholder.com/50';
+    // Notificación al servidor cuando el video arranca
+    function emitVideoStarted() {
+      if (!hasSignaledStart) {
+        hasSignaledStart = true;
+        console.log("▶️ Confirmación de reproducción enviada al servidor.");
+        socket.emit('tv-video-started');
+      }
+    }
 
-      if (data.videoUrl) {
-        videoPlayer.src = data.videoUrl;
-        videoPlayer.play().catch(err => console.error(err));
-      } else {
-        // Limpieza completa del reproductor para quitar el cuadro congelado
-        videoPlayer.pause();
-        videoPlayer.removeAttribute('src');
-        videoPlayer.load();
+    function showPlaceholder() {
+      videoPlayer.style.display = 'none';
+      if (placeholderThumb.src) {
+        videoPlaceholder.style.display = 'flex';
+      }
+    }
+
+    // Eventos del reproductor HTML5
+    videoPlayer.addEventListener('playing', () => {
+      videoPlaceholder.style.display = 'none';
+      videoPlayer.style.display = 'block';
+      emitVideoStarted();
+    });
+
+    videoPlayer.addEventListener('timeupdate', () => {
+      if (videoPlayer.currentTime > 0.1) {
+        emitVideoStarted();
       }
     });
 
+    videoPlayer.addEventListener('error', () => {
+      console.warn("⚠️ Error cargando video. Activando vista de audio...");
+      showPlaceholder();
+      emitVideoStarted();
+    });
 
+    // Evento de cambio de canción desde Websockets
+    socket.on('song-changed', (data) => {
+      document.getElementById('currentSongTitle').innerText = data.title || 'Esperando canción...';
+      document.getElementById('songArtist').innerText = data.artist || 'NEALTICAN GYM';
+      
+      const thumbSrc = data.thumbnail || 'https://via.placeholder.com/50';
+      document.getElementById('songThumbnail').src = thumbSrc;
+      placeholderThumb.src = thumbSrc;
+
+      hasSignaledStart = false;
+
+      if (data.videoUrl) {
+        videoPlaceholder.style.display = 'none';
+        videoPlayer.style.display = 'block';
+
+        // Asignación directa y limpia de URL (Evita errores de re-inicialización)
+        if (videoPlayer.src !== data.videoUrl) {
+          videoPlayer.src = data.videoUrl;
+          videoPlayer.play().catch(err => {
+            console.warn("⚠️ Autoplay detenido o ralentizado por el navegador:", err);
+            showPlaceholder();
+            emitVideoStarted();
+          });
+        }
+      } else {
+        videoPlayer.pause();
+        videoPlayer.src = "";
+        videoPlayer.style.display = 'block';
+        videoPlaceholder.style.display = 'none';
+      }
+    });
+
+    // Lista de reproducción en cola
     socket.on('update-music-queue', (queue) => {
       const queueList = document.getElementById('musicQueueList');
       document.getElementById('queueCount').innerText = `(${queue.length})`;
       queueList.innerHTML = '';
 
-      if (queue.length === 0) {
+      if (!queue || queue.length === 0) {
         queueList.innerHTML = '<li style="color: var(--text-muted); font-size: 0.85rem; padding: 10px;">No hay canciones en cola</li>';
         return;
       }
@@ -93,15 +255,20 @@
         const li = document.createElement('li');
         li.className = 'queue-item';
         li.innerHTML = `
-          <img class="queue-thumb" src="${song.thumbnail || 'https://via.placeholder.com/40'}" />
+          <img class="queue-thumb" src="${song.thumbnail || 'https://via.placeholder.com/40'}" alt="Cover" />
           <div class="queue-info">
-            <div class="queue-song-title">${song.title}</div>
-            <div class="queue-song-artist">${song.artist}</div>
+            <div class="queue-song-title">${escapeHtml(song.title)}</div>
+            <div class="queue-song-artist">${escapeHtml(song.artist)}</div>
           </div>
         `;
         queueList.appendChild(li);
       });
     });
+
+    function escapeHtml(str) {
+      if (!str) return '';
+      return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+    }
   </script>
 </body>
 </html> 
