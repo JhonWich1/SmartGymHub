@@ -16,13 +16,19 @@ const MAX_SONGS_PER_IP = 2;
 const MAX_DURATION_SECONDS = 480;
 const MPV_SOCKET = '/tmp/mpvsocket';
 
-// Archivos estáticos
+// Ruta absoluta a tus videos de rutinas en Linux
+const ROUTINES_DIR = '/home/jhonwich/Videos/nealticanGym/routines';
+
+// Servir archivos estáticos
 app.use('/styles', express.static(path.join(__dirname, 'styles')));
 app.use('/mobile', express.static(path.join(__dirname, 'pages/mobile')));
 app.use('/tv', express.static(path.join(__dirname, 'pages/tv')));
 app.use('/admin', express.static(path.join(__dirname, 'pages/admin')));
 
-// Rutas
+// Servir videos de ejercicios directamente desde el disco duro
+app.use('/routines-media', express.static(ROUTINES_DIR));
+
+// Rutas de navegación
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'pages/mobile/index.html')));
 app.get('/tv1', (req, res) => res.sendFile(path.join(__dirname, 'pages/tv/index.html')));
 app.get('/tv2', (req, res) => res.sendFile(path.join(__dirname, 'pages/tv/index.html')));
@@ -31,12 +37,16 @@ app.get('/admin', (req, res) => res.sendFile(path.join(__dirname, 'pages/admin/i
 let musicQueue = [];
 let currentSong = null;
 let currentAudioProcess = null;
+let songStartedAt = null;
 
-// Temporizadores de control
+// Estados y Colas independientes por Pantalla (TV1 y TV2)
+const tvState = {
+  tv1: { isBusy: false, queue: [] },
+  tv2: { isBusy: false, queue: [] }
+};
+
 let syncFallbackTimer = null;
-let songEndTimer = null; // 🎯 Temporizador Maestro que invoca "Saltar Canción"
-
-// Cola en serie para evitar que se encimen peticiones al añadir
+let songEndTimer = null;
 let isProcessingAdd = false;
 const pendingAddRequests = [];
 
@@ -71,9 +81,6 @@ function sendMpvCommand(commandArray) {
   client.on('error', () => {});
 }
 
-/**
- * Obtiene metadata y duración de YouTube
- */
 function getMetadata(youtubeUrl) {
   return new Promise((resolve, reject) => {
     const args = ['--force-ipv4', '--no-warnings', '--dump-json', '--no-playlist', youtubeUrl];
@@ -108,9 +115,6 @@ function getMetadata(youtubeUrl) {
   });
 }
 
-/**
- * Extrae enlace directo para el reproductor de video de la TV
- */
 function getFreshVideoUrl(youtubeUrl) {
   return new Promise((resolve) => {
     const args = [
@@ -128,18 +132,9 @@ function getFreshVideoUrl(youtubeUrl) {
   });
 }
 
-/**
- * Detiene audio actual y limpia TODOS los temporizadores
- */
 function stopCurrentAudio() {
-  if (syncFallbackTimer) {
-    clearTimeout(syncFallbackTimer);
-    syncFallbackTimer = null;
-  }
-  if (songEndTimer) {
-    clearTimeout(songEndTimer);
-    songEndTimer = null;
-  }
+  if (syncFallbackTimer) { clearTimeout(syncFallbackTimer); syncFallbackTimer = null; }
+  if (songEndTimer) { clearTimeout(songEndTimer); songEndTimer = null; }
   if (currentAudioProcess) {
     currentAudioProcess.removeAllListeners('close');
     currentAudioProcess.kill('SIGKILL');
@@ -147,9 +142,6 @@ function stopCurrentAudio() {
   }
 }
 
-/**
- * Inicia la reproducción del audio en las bocinas vía MPV
- */
 function playServerAudio(youtubeUrl) {
   if (fs.existsSync(MPV_SOCKET)) {
     try { fs.unlinkSync(MPV_SOCKET); } catch (e) {}
@@ -158,7 +150,7 @@ function playServerAudio(youtubeUrl) {
   if (!youtubeUrl) return;
 
   console.log('[Audio Server] Reproduciendo en bocinas...');
-  const startTime = Date.now();
+  songStartedAt = Date.now();
 
   currentAudioProcess = spawn('mpv', [
     '--no-video',
@@ -176,23 +168,14 @@ function playServerAudio(youtubeUrl) {
 
   currentAudioProcess.on('close', (code) => {
     currentAudioProcess = null;
-    const durationPlayed = (Date.now() - startTime) / 1000;
-    console.log(`[Audio Server] MPV cerró tras ${durationPlayed.toFixed(1)}s.`);
-
-    // Si MPV se cierra tras haber reproducido más de 5 segundos,
-    // asumimos que terminó o YouTube cortó el final y avanzamos la cola inmediatamente.
-    if (durationPlayed > 5) {
+    if (songStartedAt && (Date.now() - songStartedAt) > 5000) {
       playNextSong();
     }
   });
 }
 
-/**
- * Inicia la canción actual y programa el temporizador automático de cambio
- */
 async function startSyncedPlayback(songData) {
   stopCurrentAudio();
-
   console.log(`[Servidor] Cargando: "${songData.title}" (${songData.duration}s)`);
   
   const freshVideoUrl = await getFreshVideoUrl(songData.url);
@@ -200,33 +183,24 @@ async function startSyncedPlayback(songData) {
 
   io.emit('song-changed', currentSong);
 
-  // 1. Respando de sincronización por si la TV no responde
   syncFallbackTimer = setTimeout(() => {
     if (currentSong && currentSong.id === songData.id && !currentAudioProcess) {
-      console.log('[Sincronización Fallback] TV no notificó inicio. Arrancando audio...');
       playServerAudio(currentSong.url);
     }
   }, 3500);
 
-  // 2. 🎯 TEMPORIZADOR MAESTRO (Acción del botón Saltar Canción automatizada)
-  // Duración real + 2 segundos de margen
   const autoSkipDelayMs = ((songData.duration > 0 ? songData.duration : 240) + 2) * 1000;
-  
   songEndTimer = setTimeout(() => {
-    console.log(`[Timer Servidor] Tiempo límite alcanzado (${songData.duration}s). Ejecutando cambio automático...`);
     playNextSong();
   }, autoSkipDelayMs);
 }
 
-/**
- * Pasa a la siguiente canción en la cola (Función ejecutada por el Botón "Saltar Canción" y el Timer)
- */
 async function playNextSong() {
   stopCurrentAudio();
+  songStartedAt = null;
 
   if (musicQueue.length === 0) {
     currentSong = null;
-
     io.emit('song-changed', {
       title: 'Esperando canción...',
       artist: 'Nealtican Gym',
@@ -242,9 +216,6 @@ async function playNextSong() {
   await startSyncedPlayback(nextSong);
 }
 
-/**
- * Procesador en serie para peticiones concurrentes
- */
 async function processAddQueue() {
   if (isProcessingAdd || pendingAddRequests.length === 0) return;
 
@@ -293,6 +264,28 @@ async function processAddQueue() {
   }
 }
 
+// =======================================================
+// LÓGICA DE RUTINAS (TOTALMENTE INDEPENDIENTE DE LA MÚSICA)
+// =======================================================
+function processRoutineQueue(tvId) {
+  const state = tvState[tvId];
+  if (!state) return;
+
+  if (state.queue.length === 0) {
+    state.isBusy = false;
+    return;
+  }
+
+  state.isBusy = true;
+  const routine = state.queue.shift();
+
+  // Enviar comando a la TV correspondiente (SIN pausar mpv ni modificar música)
+  io.emit('play-routine-tv', {
+    tvId: tvId,
+    routine: routine
+  });
+}
+
 // Websockets
 io.on('connection', (socket) => {
   const rawIp = socket.handshake.address;
@@ -309,13 +302,40 @@ io.on('connection', (socket) => {
   });
 
   socket.on('tv-video-started', () => {
-    if (syncFallbackTimer) {
-      clearTimeout(syncFallbackTimer);
-      syncFallbackTimer = null;
-    }
+    if (syncFallbackTimer) { clearTimeout(syncFallbackTimer); syncFallbackTimer = null; }
     if (currentSong && !currentAudioProcess) {
-      console.log('[Sincronización] TV lista. Arrancando bocinas...');
       playServerAudio(currentSong.url);
+    }
+  });
+
+  // SOLICITUD DE TRANSMISIÓN DE RUTINA DESDE EL MÓVIL
+  socket.on('request-routine-transmit', (data) => {
+    const { tvId, routine } = data;
+    if (!tvState[tvId]) return;
+
+    if (tvState[tvId].isBusy) {
+      tvState[tvId].queue.push(routine);
+      socket.emit('routine-status', {
+        status: 'queued',
+        message: `Petición agregada a la cola de ${tvId.toUpperCase()}. Posición: ${tvState[tvId].queue.length}`
+      });
+    } else {
+      tvState[tvId].queue.push(routine);
+      socket.emit('routine-status', {
+        status: 'playing',
+        message: `Transmitiendo a ${tvId.toUpperCase()}...`
+      });
+      processRoutineQueue(tvId);
+    }
+  });
+
+  // NOTIFICACIÓN DE TV CUANDO TERMINA O CANCELA EL VIDEO DEL EJERCICIO
+  socket.on('routine-finished', (tvId) => {
+    console.log(`[Rutina] TV ${tvId} finalizó un ejercicio.`);
+    const state = tvState[tvId];
+    if (state) {
+      state.isBusy = false;
+      processRoutineQueue(tvId);
     }
   });
 
@@ -346,9 +366,7 @@ io.on('connection', (socket) => {
     io.emit('player-status-changed', { isPaused, volume: currentVolume });
   });
 
-  // Botón "Saltar Canción" invoca la misma función
   socket.on('admin-skip-song', () => {
-    console.log('[Admin] Salto manual solicitado.');
     playNextSong();
   });
 

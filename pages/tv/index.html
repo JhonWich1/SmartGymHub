@@ -7,8 +7,28 @@
   <script src="/socket.io/socket.io.js"></script>
   <link rel="stylesheet" href="/styles/styles.css">
   <style>
-    /* Estilos para el reproductor alternativo */
+    /* CONTENEDOR PRINCIPAL DE VIDEO */
+    .video-container {
+      position: relative;
+      width: 100%;
+      height: calc(100% - 70px);
+      background: #000;
+      border-radius: 12px;
+      overflow: hidden;
+    }
+
+    #gymVideoPlayer {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    /* PLACEHOLDER SUPERPUESTO (CORREGIDO) */
     .video-placeholder {
+      position: absolute;
+      top: 0;
+      left: 0;
       width: 100%;
       height: 100%;
       display: flex;
@@ -16,10 +36,11 @@
       align-items: center;
       justify-content: center;
       background: rgba(15, 23, 42, 0.95);
-      border-radius: 16px;
+      border-radius: 12px;
       color: #f8fafc;
       text-align: center;
       padding: 20px;
+      z-index: 10;
     }
     .video-placeholder img {
       width: 160px;
@@ -29,12 +50,7 @@
       box-shadow: 0 10px 25px rgba(0,0,0,0.5);
       margin-bottom: 15px;
     }
-    .video-placeholder p {
-      font-size: 1.1rem;
-      color: #94a3b8;
-    }
 
-    /* Secciones informativas para los usuarios del gym */
     .tv-sidebar {
       display: flex;
       flex-direction: column;
@@ -50,39 +66,75 @@
       font-size: 0.82rem;
       color: #cbd5e1;
     }
-    .gym-rules-title {
-      font-weight: bold;
-      color: #f59e0b;
-      margin-bottom: 8px;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      font-size: 0.85rem;
-    }
-    .gym-rules-list {
-      margin: 0;
-      padding-left: 18px;
-      display: flex;
+
+    /* OVERLAY DE TRANSMISIÓN DE RUTINAS */
+    #routineContainer {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: #000;
+      border-radius: 16px;
+      display: none;
       flex-direction: column;
-      gap: 4px;
-      line-height: 1.4;
-      color: #94a3b8;
+      z-index: 50;
+      overflow: hidden;
     }
-    .gym-rules-list strong {
-      color: #f8fafc;
+    #routineVideoPlayer {
+      width: 100%;
+      height: 75%;
+      object-fit: contain;
+      background: #000;
     }
 
-    .connect-notice {
-      background: rgba(245, 158, 11, 0.1);
-      border: 1px dashed rgba(245, 158, 11, 0.4);
-      padding: 10px 14px;
-      border-radius: 10px;
+    /* CARGADOR Y SPINNER DE ESPERA */
+    .routine-loader {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 75%;
+      background: #0f172a;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 60;
+      color: #f8fafc;
+      font-size: 0.95rem;
+    }
+    .spinner {
+      width: 42px;
+      height: 42px;
+      border: 4px solid rgba(255, 255, 255, 0.1);
+      border-left-color: #f59e0b;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
       margin-bottom: 12px;
-      font-size: 0.8rem;
-      color: #fbbf24;
-      text-align: center;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .routine-details-panel {
+      padding: 15px 20px;
+      background: rgba(15, 23, 42, 0.98);
+      height: 25%;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      z-index: 70;
+    }
+    .routine-badge {
+      background: #f59e0b;
+      color: #000;
+      font-weight: bold;
+      padding: 3px 8px;
+      border-radius: 6px;
+      font-size: 0.75rem;
+      width: fit-content;
+      margin-bottom: 5px;
     }
   </style>
 </head>
@@ -97,15 +149,31 @@
   </header>
 
   <div class="main-container">
-    <!-- Panel Izquierdo: Video Gigante -->
-    <div class="neu-panel video-card">
+    
+    <div class="neu-panel video-card" style="position: relative;">
+      
+      <!-- Video de fondo / Reproductor de Música de YouTube -->
       <div class="video-container">
         <video id="gymVideoPlayer" autoplay playsinline muted preload="auto"></video>
-        
-        <!-- Vista alternativa si el video no carga -->
         <div id="videoPlaceholder" class="video-placeholder" style="display: none;">
           <img id="placeholderThumb" src="https://via.placeholder.com/160" alt="Portada" />
-          <p>Sonando en las bocinas del Gym</p>
+          <p style="margin-top: 10px;">Sonando en las bocinas del Gym</p>
+        </div>
+      </div>
+
+      <!-- OVERLAY DE TRANSMISIÓN DE RUTINA LOCAL -->
+      <div id="routineContainer">
+        <div id="routineLoading" class="routine-loader">
+          <div class="spinner"></div>
+          <div>Cargando ejercicio...</div>
+        </div>
+
+        <video id="routineVideoPlayer" playsinline preload="auto"></video>
+        
+        <div class="routine-details-panel">
+          <div class="routine-badge">ENTRENAMIENTO EN PANTALLA</div>
+          <div id="routineTitleDisplay" style="font-size: 1.4rem; font-weight: bold; color: #f8fafc;"></div>
+          <div id="routineDescDisplay" style="font-size: 0.95rem; color: #94a3b8; margin-top: 4px;"></div>
         </div>
       </div>
 
@@ -118,10 +186,8 @@
       </div>
     </div>
 
-    <!-- Panel Derecho: Cola y Reglas del Gimnasio -->
+    <!-- Panel Derecho -->
     <div class="tv-sidebar">
-      
-      <!-- Lista en Cola -->
       <div class="neu-panel queue-card" style="flex: 1;">
         <div class="queue-title">
           <span>Próximas en Fila</span>
@@ -132,22 +198,15 @@
         </ul>
       </div>
 
-      <!-- Tarjeta de Indicaciones y Reglas para el Usuario -->
       <div class="gym-rules-card">
-        <div class="connect-notice">
-          📲 <strong>¿Quieres pedir tu música?</strong><br>
-          Conéctate al Wi-Fi del Gym e ingresa desde tu navegador.
-        </div>
-        <div class="gym-rules-title">📌 Reglas del Sistema</div>
-        <ul class="gym-rules-list">
-          <li><strong>Límite:</strong> Máximo 2 canciones por persona en fila.</li>
-          <li><strong>Duración:</strong> Canciones de máximo 8 minutos.</li>
-          <li><strong>Enlaces:</strong> Solo enlaces válidos de YouTube.</li>
-          <li><strong>Respeto:</strong> Contenido inapropiado será removido por Admin.</li>
+        <div style="font-weight: bold; color: #f59e0b; margin-bottom: 6px;">📌 Reglas del Sistema</div>
+        <ul style="margin: 0; padding-left: 18px; line-height: 1.4; color: #94a3b8;">
+          <li>Música: Máximo 2 canciones por persona.</li>
+          <li>Rutinas: Respeta los tiempos en pantalla.</li>
         </ul>
       </div>
-
     </div>
+
   </div>
 
   <script>
@@ -156,16 +215,25 @@
     const videoPlaceholder = document.getElementById('videoPlaceholder');
     const placeholderThumb = document.getElementById('placeholderThumb');
     
+    const routineContainer = document.getElementById('routineContainer');
+    const routineLoading = document.getElementById('routineLoading');
+    const routineVideoPlayer = document.getElementById('routineVideoPlayer');
+
     const pathname = window.location.pathname.toLowerCase();
     const tvId = pathname.includes('tv2') ? 'tv2' : 'tv1';
 
     let hasSignaledStart = false;
+    let routineTimeoutTimer = null;
+    let isRoutineActive = false;
 
-    // Identificación del área de la TV
+    // Desbloqueo de permisos de audio al hacer un clic en la pestaña
+    document.body.addEventListener('click', () => {
+      if (routineVideoPlayer) routineVideoPlayer.muted = false;
+    }, { once: true });
+
     document.getElementById('tvNameDisplay').innerText = 
       tvId === 'tv1' ? 'TV 1 - PESOS LIBRES' : 'TV 2 - MÁQUINAS';
 
-    // Reloj en tiempo real
     function updateClock() {
       const now = new Date();
       document.getElementById('liveClock').innerText = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -173,23 +241,13 @@
     setInterval(updateClock, 1000);
     updateClock();
 
-    // Notificación al servidor cuando el video arranca
     function emitVideoStarted() {
       if (!hasSignaledStart) {
         hasSignaledStart = true;
-        console.log("▶️ Confirmación de reproducción enviada al servidor.");
         socket.emit('tv-video-started');
       }
     }
 
-    function showPlaceholder() {
-      videoPlayer.style.display = 'none';
-      if (placeholderThumb.src) {
-        videoPlaceholder.style.display = 'flex';
-      }
-    }
-
-    // Eventos del reproductor HTML5
     videoPlayer.addEventListener('playing', () => {
       videoPlaceholder.style.display = 'none';
       videoPlayer.style.display = 'block';
@@ -197,18 +255,93 @@
     });
 
     videoPlayer.addEventListener('timeupdate', () => {
-      if (videoPlayer.currentTime > 0.1) {
-        emitVideoStarted();
+      if (videoPlayer.currentTime > 0.1) emitVideoStarted();
+    });
+
+    // 1. RECIBIR ORDEN DE TRANSMISIÓN DE RUTINA
+    socket.on('play-routine-tv', (data) => {
+      if (data.tvId !== tvId) return;
+
+      isRoutineActive = true;
+      const r = data.routine;
+
+      document.getElementById('routineTitleDisplay').innerText = r.title;
+      document.getElementById('routineDescDisplay').innerText = r.desc;
+
+      // Mostrar overlay
+      routineLoading.style.display = 'flex';
+      routineContainer.style.display = 'flex';
+
+      if (routineTimeoutTimer) clearTimeout(routineTimeoutTimer);
+
+      // Timeout de seguridad en caso de fallo de red
+      routineTimeoutTimer = setTimeout(() => {
+        if (isRoutineActive && routineVideoPlayer.paused) {
+          console.warn("Tiempo límite de carga alcanzado.");
+          closeRoutine();
+        }
+      }, 10000);
+
+      // Cargar archivo MP4
+      routineVideoPlayer.src = r.videoUrl;
+      routineVideoPlayer.load();
+    });
+
+    // 2. CUANDO EL VIDEO TIENE DATOS SUFICIENTES -> REPRODUCIR
+    routineVideoPlayer.onloadeddata = () => {
+      if (!isRoutineActive) return;
+
+      routineLoading.style.display = 'none';
+
+      // Intentar reproducir con audio
+      routineVideoPlayer.muted = false;
+      const playPromise = routineVideoPlayer.play();
+
+      if (playPromise !== undefined) {
+        playPromise.catch(err => {
+          console.warn("Navegador bloqueó audio automático. Forzando reproducción silenciosa temporal...", err);
+          // RESCATE: Si el navegador bloquea por falta de interacción, silenciar y reproducir de todos modos
+          routineVideoPlayer.muted = true;
+          routineVideoPlayer.play().catch(fatalErr => {
+            console.error("Error al intentar reproducir video local:", fatalErr);
+            closeRoutine();
+          });
+        });
       }
-    });
+    };
 
-    videoPlayer.addEventListener('error', () => {
-      console.warn("⚠️ Error cargando video. Activando vista de audio...");
-      showPlaceholder();
-      emitVideoStarted();
-    });
+    // 3. CUANDO EL VIDEO TERMINA DE FORMA NATURAL
+    routineVideoPlayer.onended = () => {
+      if (isRoutineActive && routineVideoPlayer.currentTime > 0) {
+        closeRoutine();
+      }
+    };
 
-    // Evento de cambio de canción desde Websockets
+    // 4. ERROR DE ARCHIVO NO ENCONTRADO (404) O CORRUPTO
+    routineVideoPlayer.onerror = (e) => {
+      if (isRoutineActive && routineVideoPlayer.src) {
+        console.error("Error cargando MP4 desde la ruta:", routineVideoPlayer.src);
+        closeRoutine();
+      }
+    };
+
+    // FUNCIÓN DE CIERRE Y LIMPIEZA
+    function closeRoutine() {
+      isRoutineActive = false;
+      if (routineTimeoutTimer) clearTimeout(routineTimeoutTimer);
+
+      routineContainer.style.display = 'none';
+      routineLoading.style.display = 'none';
+
+      routineVideoPlayer.pause();
+      routineVideoPlayer.onerror = null;
+      routineVideoPlayer.removeAttribute('src');
+
+      // Avisar al servidor para liberar el estado (isBusy: false)
+      socket.emit('routine-finished', tvId);
+    }
+
+    // MANEJO DE MÚSICA Y COLA
     socket.on('song-changed', (data) => {
       document.getElementById('currentSongTitle').innerText = data.title || 'Esperando canción...';
       document.getElementById('songArtist').innerText = data.artist || 'NEALTICAN GYM';
@@ -223,12 +356,10 @@
         videoPlaceholder.style.display = 'none';
         videoPlayer.style.display = 'block';
 
-        // Asignación directa y limpia de URL (Evita errores de re-inicialización)
         if (videoPlayer.src !== data.videoUrl) {
           videoPlayer.src = data.videoUrl;
-          videoPlayer.play().catch(err => {
-            console.warn("⚠️ Autoplay detenido o ralentizado por el navegador:", err);
-            showPlaceholder();
+          videoPlayer.play().catch(() => {
+            videoPlaceholder.style.display = 'flex';
             emitVideoStarted();
           });
         }
@@ -240,7 +371,6 @@
       }
     });
 
-    // Lista de reproducción en cola
     socket.on('update-music-queue', (queue) => {
       const queueList = document.getElementById('musicQueueList');
       document.getElementById('queueCount').innerText = `(${queue.length})`;

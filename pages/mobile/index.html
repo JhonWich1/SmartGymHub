@@ -6,6 +6,113 @@
   <title>Nealtican Gym - Control Móvil</title>
   <script src="/socket.io/socket.io.js"></script>
   <link rel="stylesheet" href="/styles/styles.css">
+  <style>
+    /* Selector de TV Destino arriba de la lista */
+    .tv-target-selector {
+      display: flex;
+      background: rgba(15, 23, 42, 0.8);
+      border-radius: 12px;
+      padding: 4px;
+      margin-bottom: 15px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    .tv-target-btn {
+      flex: 1;
+      padding: 10px;
+      font-size: 0.85rem;
+      font-weight: bold;
+      border: none;
+      border-radius: 8px;
+      background: transparent;
+      color: #94a3b8;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    .tv-target-btn.active {
+      background: #f59e0b;
+      color: #000;
+      box-shadow: 0 2px 8px rgba(245, 158, 11, 0.3);
+    }
+
+    /* Tarjeta de Ejercicio con Previsualización de Video Local */
+    .exercise-card {
+      background: rgba(30, 41, 59, 0.7);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 14px;
+      padding: 14px;
+      margin-bottom: 16px;
+    }
+    .exercise-title {
+      font-size: 1.1rem;
+      font-weight: bold;
+      color: #f8fafc;
+      margin-bottom: 4px;
+    }
+    .exercise-desc {
+      font-size: 0.85rem;
+      color: #94a3b8;
+      line-height: 1.4;
+      margin-bottom: 10px;
+    }
+
+    /* Reproductor de Video Móvil */
+    .mobile-preview-video {
+      width: 100%;
+      max-height: 200px;
+      border-radius: 10px;
+      background: #000;
+      margin-bottom: 12px;
+      object-fit: cover;
+    }
+
+    .btn-transmit {
+      width: 100%;
+      padding: 12px;
+      font-size: 0.9rem;
+      font-weight: bold;
+      border-radius: 10px;
+      border: none;
+      background: #2563eb;
+      color: white;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+    .btn-transmit:active {
+      transform: scale(0.98);
+      opacity: 0.9;
+    }
+
+    .muscle-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 12px;
+      margin-top: 15px;
+    }
+    .muscle-card {
+      background: rgba(30, 41, 59, 0.7);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 14px;
+      padding: 16px;
+      text-align: center;
+      cursor: pointer;
+    }
+    .muscle-icon { font-size: 2rem; display: block; margin-bottom: 6px; }
+    .muscle-title { font-weight: bold; color: #f8fafc; font-size: 0.95rem; }
+
+    .back-btn {
+      background: transparent;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      color: #94a3b8;
+      padding: 6px 12px;
+      border-radius: 8px;
+      font-size: 0.8rem;
+      margin-bottom: 15px;
+      cursor: pointer;
+    }
+  </style>
 </head>
 <body>
 
@@ -14,9 +121,9 @@
     <div class="tv-badge">MÓVIL</div>
   </header>
 
-  <main style="max-width: 480px; margin: 0 auto; width: 100%;">
+  <main style="max-width: 480px; margin: 0 auto; width: 100%; padding-bottom: 30px;">
 
-    <!-- Selector de Pestañas Neumórfico -->
+    <!-- Navegación por pestañas -->
     <div class="tab-navigation">
       <button class="tab-btn active" id="tabMusicaBtn" onclick="switchTab('musica')">
         <span>🎵</span> Música
@@ -26,132 +133,171 @@
       </button>
     </div>
 
-    <!-- SECCIÓN 1: CONTROL DE MÚSICA -->
+    <!-- SECCIÓN MÚSICA -->
     <div id="sectionMusica">
-      <!-- Formulario Agregar Música -->
       <div class="neu-panel">
         <h2 class="section-title">🎵 Agregar Música</h2>
-        
         <form id="musicForm" onsubmit="sendSong(event)">
-          <input 
-            type="url" 
-            id="youtubeUrl" 
-            class="neu-inset" 
-            placeholder="Pega el enlace de YouTube aquí..." 
-            required 
-          />
+          <input type="url" id="youtubeUrl" class="neu-inset" placeholder="Pega el enlace de YouTube aquí..." required />
           <button type="submit" class="neu-button">Añadir a la Fila</button>
         </form>
       </div>
 
-      <!-- Lista de Canciones en Espera -->
       <div class="neu-panel">
         <h2 class="section-title">Próximas Canciones</h2>
         <ul class="queue-list" id="mobileQueueList">
-          <li style="color: var(--text-muted); font-size: 0.85rem; padding: 10px; text-align: center;">
-            No hay canciones pendientes
-          </li>
+          <li style="color: var(--text-muted); font-size: 0.85rem; padding: 10px; text-align: center;">No hay canciones pendientes</li>
         </ul>
       </div>
     </div>
 
-    <!-- SECCIÓN 2: RUTINAS (EN PROCESO) -->
+    <!-- SECCIÓN RUTINAS -->
     <div id="sectionRutinas" style="display: none;">
-      <div class="neu-panel coming-soon-card">
-        <div style="font-size: 3rem;">⚡</div>
-        <span class="badge-status">En Desarrollo</span>
-        <h2 style="font-size: 1.4rem; color: #ffffff;">Módulo de Rutinas</h2>
-        <p style="font-size: 0.88rem; color: var(--text-muted); line-height: 1.5;">
-          Estamos construyendo una sección interactiva para consultar tus programas de entrenamiento, guías de ejercicios y cronómetros de descanso.
-        </p>
+      
+      <!-- VISTA 1: Categorías de Músculo -->
+      <div id="categoriesView" class="neu-panel">
+        <h2 style="font-size: 1.3rem; color: #ffffff; text-align: center;">¿Qué vas a entrenar hoy? 💪</h2>
+        <p style="font-size: 0.85rem; color: var(--text-muted); text-align: center; margin-top: 4px;">Selecciona un grupo muscular para explorar ejercicios</p>
 
-        <!-- Vista previa de módulos futuros -->
-        <div class="preview-features">
-          <div class="feature-item">
-            <span>💪</span>
-            <span>Rutinas por Grupo Muscular (Próximamente)</span>
-          </div>
-          <div class="feature-item">
-            <span>⏱️</span>
-            <span>Temporizador de Descanso Interactivo</span>
-          </div>
-          <div class="feature-item">
-            <span>📈</span>
-            <span>Registro de Pesos e Intensidad</span>
-          </div>
+        <div class="muscle-grid">
+          <div class="muscle-card" onclick="selectCategory('pecho')"><span class="muscle-icon">🏋️‍♂️</span><span class="muscle-title">Pecho</span></div>
+          <div class="muscle-card" onclick="selectCategory('hombro')"><span class="muscle-icon">🎯</span><span class="muscle-title">Hombro</span></div>
+          <div class="muscle-card" onclick="selectCategory('espalda')"><span class="muscle-icon">🪵</span><span class="muscle-title">Espalda</span></div>
+          <div class="muscle-card" onclick="selectCategory('brazo')"><span class="muscle-icon">💪</span><span class="muscle-title">Brazo</span></div>
+          <div class="muscle-card" onclick="selectCategory('pierna')"><span class="muscle-icon">🦵</span><span class="muscle-title">Pierna</span></div>
+          <div class="muscle-card" onclick="selectCategory('gluteo')"><span class="muscle-icon">🍑</span><span class="muscle-title">Glúteo</span></div>
         </div>
       </div>
+
+      <!-- VISTA 2: Lista de Ejercicios -->
+      <div id="exercisesView" class="neu-panel" style="display: none;">
+        <button class="back-btn" onclick="backToCategories()">← Volver a Grupos</button>
+        <h2 id="selectedCategoryTitle" style="font-size: 1.3rem; color: #ffffff; text-transform: capitalize; margin-bottom: 12px;"></h2>
+
+        <!-- SELECTOR ÚNICO DE PANTALLA DESTINO -->
+        <div style="font-size: 0.8rem; color: #94a3b8; margin-bottom: 6px;">Enviar a la pantalla:</div>
+        <div class="tv-target-selector">
+          <button class="tv-target-btn active" id="targetTv1Btn" onclick="setTargetTv('tv1')">📺 TV 1 (Pesos Libres)</button>
+          <button class="tv-target-btn" id="targetTv2Btn" onclick="setTargetTv('tv2')">📺 TV 2 (Máquinas)</button>
+        </div>
+
+        <!-- Contenedor dinámico de ejercicios -->
+        <div id="exercisesList"></div>
+      </div>
+
     </div>
 
   </main>
 
   <script>
     const socket = io();
+    let selectedTv = 'tv1'; // TV por defecto
 
-    // Cambiar de Pestaña (Música / Rutinas)
-    function switchTab(tab) {
-      const musicaTab = document.getElementById('tabMusicaBtn');
-      const rutinasTab = document.getElementById('tabRutinasBtn');
-      const musicaSec = document.getElementById('sectionMusica');
-      const rutinasSec = document.getElementById('sectionRutinas');
+    const exerciseDatabase = [
+      { id: '01', category: 'pierna', title: 'Sentadilla Libre', desc: 'Mantén la espalda recta y baja a 90°. Controla el peso en todo momento.', videoFile: 'rutina-pierna-01.mp4' },
+      { id: '02', category: 'pierna', title: 'Prensa 45°', desc: 'Coloca los pies a la anchura de los hombros. No bloquees las rodillas al subir.', videoFile: 'rutina-pierna-02.mp4' },
+      { id: '01', category: 'pecho', title: 'Press Plano con Barra', desc: 'Saca el pecho y mantén las escápulas retraídas. Apoya firmemente los pies.', videoFile: 'rutina-pecho-01.mp4' },
+      { id: '01', category: 'espalda', title: 'Jalón al Pecho', desc: 'Lleva la barra hacia el esternón sin balancear excesivamente el torso.', videoFile: 'rutina-espalda-01.mp4' },
+      { id: '01', category: 'hombro', title: 'Press Militar', desc: 'Mantén el abdomen firme y sube la barra verticalmente por encima de la cabeza.', videoFile: 'rutina-hombro-01.mp4' },
+      { id: '01', category: 'brazo', title: 'Curl de Biceps', desc: 'Mantén los codos pegados al cuerpo y evita usar el impulso de la espalda.', videoFile: 'rutina-brazo-01.mp4' },
+      { id: '01', category: 'gluteo', title: 'Hip Thrust', desc: 'Empuja con los talones y aprieta los glúteos en la parte superior durante 1 segundo.', videoFile: 'rutina-gluteo-01.mp4' }
+    ];
 
-      if (tab === 'musica') {
-        musicaTab.classList.add('active');
-        rutinasTab.classList.remove('active');
-        musicaSec.style.display = 'block';
-        rutinasSec.style.display = 'none';
-      } else {
-        rutinasTab.classList.add('active');
-        musicaTab.classList.remove('active');
-        musicaSec.style.display = 'none';
-        rutinasSec.style.display = 'block';
-      }
+    function setTargetTv(tvId) {
+      selectedTv = tvId;
+      document.getElementById('targetTv1Btn').classList.toggle('active', tvId === 'tv1');
+      document.getElementById('targetTv2Btn').classList.toggle('active', tvId === 'tv2');
+      
+      // Actualizar texto en los botones de la lista
+      document.querySelectorAll('.btn-transmit-text').forEach(el => {
+        el.innerText = tvId === 'tv1' ? 'Transmitir a TV 1' : 'Transmitir a TV 2';
+      });
     }
 
-    // Enviar Canción vía WebSockets
-    function sendSong(event) {
-      event.preventDefault();
-      const urlInput = document.getElementById('youtubeUrl');
-      const url = urlInput.value.trim();
+    function selectCategory(category) {
+      document.getElementById('categoriesView').style.display = 'none';
+      document.getElementById('exercisesView').style.display = 'block';
+      document.getElementById('selectedCategoryTitle').innerText = 'Ejercicios de ' + category;
 
-      if (url) {
-        socket.emit('add-song', { url: url });
-        urlInput.value = '';
-      }
-    }
+      const container = document.getElementById('exercisesList');
+      container.innerHTML = '';
 
-    // Notificaciones del Servidor
-    socket.on('song-error', (msg) => {
-      alert('⚠️ ' + msg);
-    });
+      const filtered = exerciseDatabase.filter(e => e.category === category);
 
-    socket.on('song-added-success', (msg) => {
-      // Feedback visual opcional
-    });
-
-    // Sincronización de Cola de Espera
-    socket.on('update-music-queue', (queue) => {
-      const queueList = document.getElementById('mobileQueueList');
-      queueList.innerHTML = '';
-
-      if (queue.length === 0) {
-        queueList.innerHTML = '<li style="color: var(--text-muted); font-size: 0.85rem; padding: 10px; text-align: center;">No hay canciones pendientes</li>';
+      if (filtered.length === 0) {
+        container.innerHTML = '<p style="color: var(--text-muted); font-size: 0.9rem; text-align: center; padding: 20px;">Próximamente más ejercicios para este grupo.</p>';
         return;
       }
 
-      queue.forEach((song, index) => {
+      filtered.forEach(item => {
+        const div = document.createElement('div');
+        div.className = 'exercise-card';
+        div.innerHTML = `
+          <div class="exercise-title">${item.title}</div>
+          <div class="exercise-desc">${item.desc}</div>
+          
+          <!-- Reproductor para ver el video en el celular -->
+          <video 
+            class="mobile-preview-video" 
+            controls 
+            playsinline 
+            preload="metadata" 
+            src="/routines-media/${item.videoFile}">
+          </video>
+
+          <button class="btn-transmit" onclick="transmitRoutine('${item.videoFile}', '${item.title}', '${item.desc}')">
+            📡 <span class="btn-transmit-text">${selectedTv === 'tv1' ? 'Transmitir a TV 1' : 'Transmitir a TV 2'}</span>
+          </button>
+        `;
+        container.appendChild(div);
+      });
+    }
+
+    function backToCategories() {
+      document.getElementById('categoriesView').style.display = 'block';
+      document.getElementById('exercisesView').style.display = 'none';
+    }
+
+    function transmitRoutine(videoFile, title, desc) {
+      socket.emit('request-routine-transmit', {
+        tvId: selectedTv,
+        routine: {
+          title: title,
+          desc: desc,
+          videoUrl: '/routines-media/' + videoFile
+        }
+      });
+    }
+
+    socket.on('routine-status', (res) => alert(res.message));
+
+    function switchTab(tab) {
+      document.getElementById('tabMusicaBtn').classList.toggle('active', tab === 'musica');
+      document.getElementById('tabRutinasBtn').classList.toggle('active', tab === 'rutinas');
+      document.getElementById('sectionMusica').style.display = tab === 'musica' ? 'block' : 'none';
+      document.getElementById('sectionRutinas').style.display = tab === 'rutinas' ? 'block' : 'none';
+    }
+
+    function sendSong(e) {
+      e.preventDefault();
+      const input = document.getElementById('youtubeUrl');
+      if (input.value.trim()) {
+        socket.emit('add-song', { url: input.value.trim() });
+        input.value = '';
+      }
+    }
+
+    socket.on('song-error', (msg) => alert('⚠️ ' + msg));
+    socket.on('update-music-queue', (queue) => {
+      const list = document.getElementById('mobileQueueList');
+      list.innerHTML = queue.length ? '' : '<li style="color: var(--text-muted); font-size: 0.85rem; padding: 10px; text-align: center;">No hay canciones pendientes</li>';
+      queue.forEach((song, i) => {
         const li = document.createElement('li');
         li.className = 'queue-item';
-        li.innerHTML = `
-          <img class="queue-thumb" src="${song.thumbnail || 'https://via.placeholder.com/40'}" alt="thumb" />
-          <div class="queue-info">
-            <div class="queue-song-title">${index + 1}. ${song.title}</div>
-            <div class="queue-song-artist">${song.artist}</div>
-          </div>
-        `;
-        queueList.appendChild(li);
+        li.innerHTML = `<img class="queue-thumb" src="${song.thumbnail || 'https://via.placeholder.com/40'}" /><div class="queue-info"><div class="queue-song-title">${i + 1}. ${song.title}</div><div class="queue-song-artist">${song.artist}</div></div>`;
+        list.appendChild(li);
       });
     });
   </script>
 </body>
-</html>
+</html> 
