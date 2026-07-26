@@ -33,6 +33,132 @@
     }
     .volume-slider { flex: 1; accent-color: var(--accent-yellow); cursor: pointer; }
 
+    /* SELECTOR UNIFICADO DE TV DESTINO */
+    .tv-target-selector {
+      display: flex;
+      background: var(--bg-color);
+      padding: 4px;
+      border-radius: 12px;
+      gap: 6px;
+      margin-bottom: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    .tv-target-btn {
+      flex: 1;
+      padding: 10px;
+      border: none;
+      border-radius: 8px;
+      background: transparent;
+      color: var(--text-muted);
+      font-weight: bold;
+      font-size: 0.85rem;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+    .tv-target-btn.active-tv1 {
+      background: #2563eb;
+      color: white;
+      box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+    }
+    .tv-target-btn.active-tv2 {
+      background: #059669;
+      color: white;
+      box-shadow: 0 4px 12px rgba(5, 150, 105, 0.3);
+    }
+
+    /* FILTROS Y CATEGORÍAS */
+    .category-pills {
+      display: flex;
+      gap: 6px;
+      overflow-x: auto;
+      padding-bottom: 8px;
+      margin-bottom: 12px;
+      scrollbar-width: thin;
+    }
+    .pill-btn {
+      padding: 6px 12px;
+      border-radius: 20px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      background: var(--bg-color);
+      color: var(--text-muted);
+      font-size: 0.78rem;
+      font-weight: bold;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all 0.2s ease;
+    }
+    .pill-btn.active {
+      background: var(--accent-yellow);
+      color: #000;
+      border-color: var(--accent-yellow);
+    }
+
+    /* REJILLA DE EJERCICIOS CON SCROLL INDEPENDIENTE (CONTIENE HASTA 100+ RUTINAS) */
+    .routine-grid-container {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+      gap: 10px;
+      max-height: 380px;
+      overflow-y: auto;
+      padding-right: 4px;
+      scrollbar-width: thin;
+    }
+    .admin-routine-card {
+      background: var(--bg-color);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 12px;
+      padding: 10px 12px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 10px;
+      cursor: pointer;
+      transition: transform 0.15s ease, border-color 0.15s ease;
+    }
+    .admin-routine-card:hover {
+      transform: translateY(-2px);
+      border-color: rgba(245, 158, 11, 0.4);
+    }
+    .admin-routine-title {
+      font-weight: bold;
+      font-size: 0.88rem;
+      color: #f8fafc;
+    }
+    .admin-routine-cat {
+      font-size: 0.68rem;
+      background: rgba(245, 158, 11, 0.15);
+      color: var(--accent-yellow);
+      padding: 2px 6px;
+      border-radius: 4px;
+      width: fit-content;
+      text-transform: uppercase;
+      font-weight: bold;
+    }
+    .btn-send-single {
+      width: 100%;
+      padding: 7px;
+      font-size: 0.78rem;
+      font-weight: bold;
+      border: none;
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.08);
+      color: #cbd5e1;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: all 0.2s;
+    }
+    .admin-routine-card:hover .btn-send-single {
+      background: var(--accent-yellow);
+      color: #000;
+    }
+
     #authOverlay {
       position: fixed; top:0; left:0; width:100vw; height:100vh;
       background: rgba(15, 15, 15, 0.98); z-index: 10000;
@@ -64,9 +190,10 @@
 
   <main class="admin-grid">
     
+    <!-- Columna Izquierda: Música Arriba + Rutinas Abajo con Scroll -->
     <div class="admin-controls-card">
       
-      <!-- NUEVA OPCIÓN: AÑADIR MÚSICA COMO ENCARGADA -->
+      <!-- MÓDULO 1: AÑADIR MÚSICA COMO ENCARGADA (SIEMPRE ARRIBA Y ACCESIBLE) -->
       <div class="neu-panel">
         <h3 style="color: var(--accent-yellow); margin-bottom: 12px; font-size: 0.9rem; text-transform: uppercase;">➕ Añadir Música (Modo Encargada)</h3>
         <form onsubmit="adminSendSong(event)">
@@ -75,7 +202,32 @@
         </form>
       </div>
 
-      <!-- Canción Sonando Actualmente -->
+      <!-- MÓDULO 2: TRANSMITIR RUTINA INTERACTIVA (SCROLL INTERNO) -->
+      <div class="neu-panel">
+        <h3 style="color: var(--accent-yellow); margin-bottom: 10px; font-size: 0.9rem; text-transform: uppercase;">🏋️ Transmitir Rutina (Prioridad Recepción)</h3>
+        
+        <!-- SELECTOR UNIFICADO DE PANTALLA DESTINO -->
+        <div class="tv-target-selector">
+          <button id="targetTv1" class="tv-target-btn active-tv1" onclick="selectTvTarget('tv1')">📺 TV 1 (Pesos Libres)</button>
+          <button id="targetTv2" class="tv-target-btn" onclick="selectTvTarget('tv2')">📺 TV 2 (Máquinas)</button>
+        </div>
+
+        <!-- Buscador Rápido -->
+        <input type="text" id="routineSearch" class="neu-inset" placeholder="🔍 Buscar ejercicio..." oninput="renderAdminRoutines()" style="margin-bottom: 10px;" />
+
+        <!-- Filtros por Categoría -->
+        <div class="category-pills" id="categoryPills"></div>
+
+        <!-- Rejilla de Ejercicios Limpia -->
+        <div class="routine-grid-container" id="adminRoutineGrid"></div>
+      </div>
+
+    </div>
+
+    <!-- Columna Derecha: Controles de Audio y Gestión de Pantallas -->
+    <div class="admin-controls-card">
+      
+      <!-- MÓDULO 3: Canción Sonando Actualmente -->
       <div class="neu-panel">
         <h3 style="color: var(--accent-yellow); margin-bottom: 12px; font-size: 0.9rem; text-transform: uppercase;">▶ Sonando en el Gym</h3>
         <div class="song-info-footer" style="margin-top:0;">
@@ -92,7 +244,7 @@
         </div>
       </div>
 
-      <!-- Control de Volumen y Seguridad -->
+      <!-- MÓDULO 4: Control de Volumen y Seguridad -->
       <div class="neu-panel">
         <h3 style="color: var(--accent-yellow); margin-bottom: 12px; font-size: 0.9rem; text-transform: uppercase;">🔊 Volumen y Ajustes</h3>
         <div class="volume-container" style="margin-bottom: 15px;">
@@ -106,24 +258,130 @@
         </div>
       </div>
 
-    </div>
-
-    <!-- Columna Derecha: Fila de Espera -->
-    <div class="neu-panel queue-card">
-      <div class="queue-title">
-        <span>Gestión de Fila en Vivo</span>
-        <span id="adminQueueCount" style="font-size: 0.85rem; color: var(--text-muted);">(0)</span>
+      <!-- MÓDULO 5: RESET DE PANTALLAS -->
+      <div class="neu-panel">
+        <h3 style="color: var(--accent-yellow); margin-bottom: 12px; font-size: 0.9rem; text-transform: uppercase;">🧹 Mantenimiento de Pantallas</h3>
+        <div style="display: flex; gap: 10px;">
+          <button class="btn-admin btn-warning" onclick="clearRoutineQueue('tv1')">🧹 Reset TV 1</button>
+          <button class="btn-admin btn-warning" onclick="clearRoutineQueue('tv2')">🧹 Reset TV 2</button>
+        </div>
       </div>
-      
-      <ul class="queue-list" id="adminQueueList">
-        <li style="color: var(--text-muted); font-size: 0.85rem; padding: 10px;">No hay canciones en cola</li>
-      </ul>
+
+      <!-- MÓDULO 6: Fila de Música en Vivo -->
+      <div class="neu-panel queue-card" style="flex: 1;">
+        <div class="queue-title">
+          <span>Gestión de Fila de Música</span>
+          <span id="adminQueueCount" style="font-size: 0.85rem; color: var(--text-muted);">(0)</span>
+        </div>
+        
+        <ul class="queue-list" id="adminQueueList">
+          <li style="color: var(--text-muted); font-size: 0.85rem; padding: 10px;">No hay canciones en cola</li>
+        </ul>
+      </div>
+
     </div>
 
   </main>
 
   <script>
     const socket = io();
+
+    let selectedTvTarget = 'tv1';
+    let activeCategory = 'todos';
+
+    const exerciseDatabase = [
+      { id: '01', category: 'pierna', title: 'Sentadilla Libre', desc: 'Mantén la espalda recta y baja a 90°.', videoFile: 'rutina-pierna-01.mp4' },
+      { id: '02', category: 'pierna', title: 'Prensa 45°', desc: 'No bloquees las rodillas al subir.', videoFile: 'rutina-pierna-02.mp4' },
+      { id: '01', category: 'pecho', title: 'Press Plano con Barra', desc: 'Saca el pecho y mantén las escápulas retraídas.', videoFile: 'rutina-pecho-01.mp4' },
+      { id: '01', category: 'espalda', title: 'Jalón al Pecho', desc: 'Lleva la barra hacia el esternón sin balancearte.', videoFile: 'rutina-espalda-01.mp4' },
+      { id: '01', category: 'hombro', title: 'Press Militar', desc: 'Subida vertical por encima de la cabeza.', videoFile: 'rutina-hombro-01.mp4' },
+      { id: '01', category: 'brazo', title: 'Curl de Biceps', desc: 'Codos pegados al cuerpo.', videoFile: 'rutina-brazo-01.mp4' },
+      { id: '01', category: 'gluteo', title: 'Hip Thrust', desc: 'Empuja con los talones y aprieta los glúteos arriba.', videoFile: 'rutina-gluteo-01.mp4' }
+    ];
+
+    function selectTvTarget(tvId) {
+      selectedTvTarget = tvId;
+      const btn1 = document.getElementById('targetTv1');
+      const btn2 = document.getElementById('targetTv2');
+
+      if (tvId === 'tv1') {
+        btn1.className = 'tv-target-btn active-tv1';
+        btn2.className = 'tv-target-btn';
+      } else {
+        btn1.className = 'tv-target-btn';
+        btn2.className = 'tv-target-btn active-tv2';
+      }
+      renderAdminRoutines();
+    }
+
+    function renderAdminCategoryPills() {
+      const categories = [
+        { id: 'todos', label: 'Todos' },
+        { id: 'pierna', label: '🦵 Pierna' },
+        { id: 'pecho', label: '🏋️ Pecho' },
+        { id: 'espalda', label: '🪵 Espalda' },
+        { id: 'hombro', label: '🎯 Hombro' },
+        { id: 'brazo', label: '💪 Brazo' },
+        { id: 'gluteo', label: '🍑 Glúteo' }
+      ];
+      
+      const container = document.getElementById('categoryPills');
+      container.innerHTML = categories.map(cat => `
+        <button class="pill-btn ${activeCategory === cat.id ? 'active' : ''}" onclick="selectCategory('${cat.id}')">
+          ${cat.label}
+        </button>
+      `).join('');
+    }
+
+    function selectCategory(catId) {
+      activeCategory = catId;
+      renderAdminCategoryPills();
+      renderAdminRoutines();
+    }
+
+    function renderAdminRoutines() {
+      const grid = document.getElementById('adminRoutineGrid');
+      const search = document.getElementById('routineSearch').value.toLowerCase();
+
+      const filtered = exerciseDatabase.filter(ex => {
+        const matchesCat = activeCategory === 'todos' || ex.category === activeCategory;
+        const matchesSearch = ex.title.toLowerCase().includes(search) || ex.category.toLowerCase().includes(search);
+        return matchesCat && matchesSearch;
+      });
+
+      if (filtered.length === 0) {
+        grid.innerHTML = '<div style="color: var(--text-muted); font-size: 0.8rem; grid-column: 1/-1; text-align: center; padding: 20px;">No se encontraron ejercicios</div>';
+        return;
+      }
+
+      const targetLabel = selectedTvTarget === 'tv1' ? 'TV 1' : 'TV 2';
+
+      grid.innerHTML = filtered.map(ex => `
+        <div class="admin-routine-card" onclick="sendRoutineDirect('${ex.title}', '${ex.desc}', '${ex.videoFile}')">
+          <div>
+            <span class="admin-routine-cat">${ex.category}</span>
+            <div class="admin-routine-title" style="margin-top: 6px;">${ex.title}</div>
+          </div>
+          <button class="btn-send-single">
+            🚀 Transmitir a ${targetLabel}
+          </button>
+        </div>
+      `).join('');
+    }
+
+    function sendRoutineDirect(title, desc, videoFile) {
+      socket.emit('admin-transmit-routine', {
+        tvId: selectedTvTarget,
+        routine: {
+          title: title,
+          desc: desc,
+          videoUrl: '/routines-media/' + videoFile
+        }
+      });
+    }
+
+    renderAdminCategoryPills();
+    renderAdminRoutines();
 
     function attemptLogin() {
       const pin = document.getElementById('pinInput').value;
@@ -134,9 +392,8 @@
       document.getElementById('authOverlay').style.display = 'none';
     });
 
-    socket.on('song-error', (msg) => {
-      alert('⚠️ Error al agregar canción: ' + msg);
-    });
+    socket.on('song-error', (msg) => { alert('⚠️ Error al agregar canción: ' + msg); });
+    socket.on('admin-routine-success', (msg) => { alert(msg); });
 
     socket.on('admin-auth-fail', (msg) => {
       const err = document.getElementById('authError');
@@ -144,7 +401,12 @@
       err.style.display = 'block';
     });
 
-    // Enviar canción directamente desde Admin
+    function clearRoutineQueue(tvId) {
+      if (confirm(`¿Deseas resetear la pantalla ${tvId.toUpperCase()} y liberar su fila?`)) {
+        socket.emit('admin-clear-routine-queue', tvId);
+      }
+    }
+
     function adminSendSong(event) {
       event.preventDefault();
       const input = document.getElementById('adminYoutubeUrl');
@@ -163,7 +425,7 @@
     }
     function toggleQueueLock() { socket.emit('admin-toggle-lock'); }
     function clearQueue() { 
-      if (confirm('¿Vaciar toda la lista?')) socket.emit('admin-clear-queue'); 
+      if (confirm('¿Vaciar toda la lista de música?')) socket.emit('admin-clear-queue'); 
     }
     function removeSong(songId) { socket.emit('admin-remove-song', songId); }
 

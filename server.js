@@ -13,22 +13,18 @@ const io = new Server(server);
 const PORT = process.env.PORT || 3000;
 const ADMIN_PIN = "1234";
 const MAX_SONGS_PER_IP = 2;
+const MAX_ROUTINES_PER_IP = 2; // Límite de rutinas por IP
 const MAX_DURATION_SECONDS = 480;
 const MPV_SOCKET = '/tmp/mpvsocket';
 
-// Ruta absoluta a tus videos de rutinas en Linux
 const ROUTINES_DIR = '/home/jhonwich/Videos/nealticanGym/routines';
 
-// Servir archivos estáticos
 app.use('/styles', express.static(path.join(__dirname, 'styles')));
 app.use('/mobile', express.static(path.join(__dirname, 'pages/mobile')));
 app.use('/tv', express.static(path.join(__dirname, 'pages/tv')));
 app.use('/admin', express.static(path.join(__dirname, 'pages/admin')));
-
-// Servir videos de ejercicios directamente desde el disco duro
 app.use('/routines-media', express.static(ROUTINES_DIR));
 
-// Rutas de navegación
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'pages/mobile/index.html')));
 app.get('/tv1', (req, res) => res.sendFile(path.join(__dirname, 'pages/tv/index.html')));
 app.get('/tv2', (req, res) => res.sendFile(path.join(__dirname, 'pages/tv/index.html')));
@@ -39,7 +35,6 @@ let currentSong = null;
 let currentAudioProcess = null;
 let songStartedAt = null;
 
-// Estados y Colas independientes por Pantalla (TV1 y TV2)
 const tvState = {
   tv1: { isBusy: false, queue: [] },
   tv2: { isBusy: false, queue: [] }
@@ -97,7 +92,7 @@ function getMetadata(youtubeUrl) {
         const duration = data.duration || 0;
 
         if (duration > MAX_DURATION_SECONDS) {
-          return reject(`La canción excede el límite permitido de 8 minutos (${Math.round(duration / 60)} min).`);
+          return reject(`La canción excede el límite permitido de 8 minutos.`);
         }
 
         resolve({
@@ -166,7 +161,7 @@ function playServerAudio(youtubeUrl) {
   isPaused = false;
   io.emit('player-status-changed', { isPaused, volume: currentVolume });
 
-  currentAudioProcess.on('close', (code) => {
+  currentAudioProcess.on('close', () => {
     currentAudioProcess = null;
     if (songStartedAt && (Date.now() - songStartedAt) > 5000) {
       playNextSong();
@@ -264,9 +259,7 @@ async function processAddQueue() {
   }
 }
 
-// =======================================================
-// LÓGICA DE RUTINAS (TOTALMENTE INDEPENDIENTE DE LA MÚSICA)
-// =======================================================
+// PROCESADOR DE COLA DE RUTINAS
 function processRoutineQueue(tvId) {
   const state = tvState[tvId];
   if (!state) return;
@@ -279,7 +272,6 @@ function processRoutineQueue(tvId) {
   state.isBusy = true;
   const routine = state.queue.shift();
 
-  // Enviar comando a la TV correspondiente (SIN pausar mpv ni modificar música)
   io.emit('play-routine-tv', {
     tvId: tvId,
     routine: routine
@@ -308,16 +300,30 @@ io.on('connection', (socket) => {
     }
   });
 
-  // SOLICITUD DE TRANSMISIÓN DE RUTINA DESDE EL MÓVIL
+  // SOLICITUD DE TRANSMISIÓN MÓVIL (Con Límite por IP)
   socket.on('request-routine-transmit', (data) => {
     const { tvId, routine } = data;
     if (!tvState[tvId]) return;
+
+    // Contar cuántas rutinas tiene este usuario en cola (tv1 + tv2)
+    const userRoutinesInQueue = tvState.tv1.queue.concat(tvState.tv2.queue)
+      .filter(r => r.clientIp === clientIp).length;
+
+    if (userRoutinesInQueue >= MAX_ROUTINES_PER_IP && clientIp !== '127.0.0.1') {
+      socket.emit('routine-status', {
+        status: 'error',
+        message: `⚠️ Ya tienes ${MAX_ROUTINES_PER_IP} ejercicios solicitados en cola. Espera a que terminen.`
+      });
+      return;
+    }
+
+    routine.clientIp = clientIp;
 
     if (tvState[tvId].isBusy) {
       tvState[tvId].queue.push(routine);
       socket.emit('routine-status', {
         status: 'queued',
-        message: `Petición agregada a la cola de ${tvId.toUpperCase()}. Posición: ${tvState[tvId].queue.length}`
+        message: `Agregado a la cola de ${tvId.toUpperCase()}. Posición: ${tvState[tvId].queue.length}`
       });
     } else {
       tvState[tvId].queue.push(routine);
@@ -329,7 +335,34 @@ io.on('connection', (socket) => {
     }
   });
 
-  // NOTIFICACIÓN DE TV CUANDO TERMINA O CANCELA EL VIDEO DEL EJERCICIO
+  // TRANSMISIÓN PRIORITARIA ADMIN (Para usuarios sin celular)
+  socket.on('admin-transmit-routine', (data) => {
+    const { tvId, routine } = data;
+    if (!tvState[tvId]) return;
+
+    routine.clientIp = 'ADMIN';
+
+    if (tvState[tvId].isBusy) {
+      // Se coloca de PRIMERA en la cola (Prioridad)
+      tvState[tvId].queue.unshift(routine);
+      socket.emit('admin-routine-success', `⭐ Rutina prioritaria agregada al inicio de la cola de ${tvId.toUpperCase()}`);
+    } else {
+      tvState[tvId].queue.push(routine);
+      socket.emit('admin-routine-success', `🚀 Transmitiendo a ${tvId.toUpperCase()} inmediatamente`);
+      processRoutineQueue(tvId);
+    }
+  });
+
+  // ADMIN: LIBERAR / LIMPIAR COLA DE RUTINAS DE UNA TV
+  socket.on('admin-clear-routine-queue', (tvId) => {
+    if (tvState[tvId]) {
+      tvState[tvId].queue = [];
+      tvState[tvId].isBusy = false;
+      io.emit('play-routine-tv', { tvId, routine: null }); // Limpiar pantalla
+      socket.emit('admin-routine-success', `🧹 Cola de ${tvId.toUpperCase()} liberada correctamente.`);
+    }
+  });
+
   socket.on('routine-finished', (tvId) => {
     console.log(`[Rutina] TV ${tvId} finalizó un ejercicio.`);
     const state = tvState[tvId];
